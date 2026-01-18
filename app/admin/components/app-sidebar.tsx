@@ -5,8 +5,6 @@ import {
   LayoutDashboard,
   Calendar,
   Users,
-  Trophy,
-  Settings,
   LogOut,
   ChevronsUpDown,
 } from "lucide-react"
@@ -26,7 +24,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -34,9 +31,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 const navItems = [
   { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Events", url: "/admin/events", icon: Calendar },
-  { title: "Teams", url: "/admin/teams", icon: Users },
-  { title: "Judging", url: "/admin/judging", icon: Trophy },
-  { title: "Settings", url: "/admin/settings", icon: Settings },
+  { title: "Users", url: "/admin/users", icon: Users },
 ]
 
 export function AppSidebar({ variant }: { variant?: "inset" }) {
@@ -51,7 +46,7 @@ export function AppSidebar({ variant }: { variant?: "inset" }) {
             <SidebarMenuButton size="lg" asChild>
               <a href="/admin/dashboard">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Trophy className="size-4" />
+                  <LayoutDashboard className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold">LoopHack</span>
@@ -104,13 +99,6 @@ export function AppSidebar({ variant }: { variant?: "inset" }) {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="start" className="w-56">
-                <DropdownMenuItem asChild>
-                  <a href="/admin/settings">
-                    <Settings className="mr-2 size-4" />
-                    Settings
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut({ redirectUrl: "/" })}>
                   <LogOut className="mr-2 size-4" />
                   Sign out
