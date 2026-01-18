@@ -30,28 +30,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useIsAdmin } from "@/hooks/use-role"
 
-const adminNavItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Events", url: "/events", icon: Calendar },
-  { title: "Teams", url: "/teams", icon: Users },
-  { title: "Judging", url: "/judging", icon: Trophy },
-  { title: "Settings", url: "/settings", icon: Settings },
-]
-
-const userNavItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "My Events", url: "/events", icon: Calendar },
-  { title: "My Team", url: "/team", icon: Users },
-  { title: "Settings", url: "/settings", icon: Settings },
+const navItems = [
+  { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
+  { title: "Events", url: "/admin/events", icon: Calendar },
+  { title: "Teams", url: "/admin/teams", icon: Users },
+  { title: "Judging", url: "/admin/judging", icon: Trophy },
+  { title: "Settings", url: "/admin/settings", icon: Settings },
 ]
 
 export function AppSidebar({ variant }: { variant?: "inset" }) {
   const { user } = useUser()
   const { signOut } = useClerk()
-  const isAdmin = useIsAdmin()
-  const navItems = isAdmin ? adminNavItems : userNavItems
 
   return (
     <Sidebar variant={variant}>
@@ -59,7 +49,7 @@ export function AppSidebar({ variant }: { variant?: "inset" }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="/dashboard">
+              <a href="/admin/dashboard">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Trophy className="size-4" />
                 </div>
@@ -115,7 +105,7 @@ export function AppSidebar({ variant }: { variant?: "inset" }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="start" className="w-56">
                 <DropdownMenuItem asChild>
-                  <a href="/settings">
+                  <a href="/admin/settings">
                     <Settings className="mr-2 size-4" />
                     Settings
                   </a>
