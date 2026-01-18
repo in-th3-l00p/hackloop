@@ -1,8 +1,16 @@
+import { redirect } from "next/navigation"
+import { isAdmin } from "@/lib/auth"
 import { AppSidebar } from "./components/app-sidebar"
 import { SiteHeader } from "./components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const admin = await isAdmin()
+
+  if (!admin) {
+    redirect("/dashboard")
+  }
+
   return (
     <SidebarProvider
       style={{
