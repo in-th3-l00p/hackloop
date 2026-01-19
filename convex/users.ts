@@ -1,24 +1,15 @@
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
-import { UserIdentity } from "convex/server"
-
-type IdentityWithRole = UserIdentity & { role?: string }
-
-function getRoleFromIdentity(identity: IdentityWithRole): "admin" | "user" {
-  return identity.role === "admin" ? "admin" : "user"
-}
 
 export const ensureUser = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity() as IdentityWithRole | null
+    const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
       throw new Error("Not authenticated")
     }
 
     const clerkId = identity.subject
-    const role = getRoleFromIdentity(identity)
-    console.log(identity);
 
     const existingUser = await ctx.db
       .query("users")
@@ -26,15 +17,15 @@ export const ensureUser = mutation({
       .unique()
 
     if (existingUser) {
-      if (existingUser.role !== role) {
-        await ctx.db.patch(existingUser._id, { role })
-      }
       return existingUser._id
     }
 
+    const userCount = await ctx.db.query("users").collect()
+    const isFirstUser = userCount.length === 0
+
     const userId = await ctx.db.insert("users", {
       clerkId,
-      role,
+      role: isFirstUser ? "admin" : "user",
     })
 
     return userId
@@ -73,6 +64,20 @@ export const getUserByClerkId = query({
 export const getAllUsers = query({
   args: {},
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Not authenticated")
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique()
+
+    if (!currentUser || currentUser.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required")
+    }
+
     const users = await ctx.db.query("users").collect()
     return users
   },
@@ -92,5 +97,34 @@ export const isAdmin = query({
       .unique()
 
     return user?.role === "admin"
+  },
+})
+
+export const updateUserRole = mutation({
+  args: {
+    userId: v.id("users"),
+    role: v.union(v.literal("admin"), v.literal("user")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Not authenticated")
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique()
+
+    if (!currentUser || currentUser.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required")
+    }
+
+    if (args.userId === currentUser._id && args.role !== "admin") {
+      throw new Error("Cannot remove your own admin role")
+    }
+
+    await ctx.db.patch(args.userId, { role: args.role })
+    return args.userId
   },
 })

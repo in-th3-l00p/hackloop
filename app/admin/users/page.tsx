@@ -1,6 +1,9 @@
 "use client"
 
 import { useState, useEffect, useTransition } from "react"
+import { useQuery, useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -31,28 +34,42 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Shield, ShieldOff, Ban, UserCheck, Loader2 } from "lucide-react"
-import { getUsers, updateUserRole, banUser, unbanUser, type ClerkUser } from "./actions"
+import { getClerkUsers, banUser, unbanUser, type ClerkUserInfo } from "./actions"
+
+interface CombinedUser {
+  id: Id<"users">
+  clerkId: string
+  firstName: string | null
+  lastName: string | null
+  email: string
+  imageUrl: string
+  role: "admin" | "user"
+  createdAt: number
+  banned: boolean
+}
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<ClerkUser[]>([])
+  const convexUsers = useQuery(api.users.getAllUsers)
+  const updateRole = useMutation(api.users.updateUserRole)
+  const [clerkUsers, setClerkUsers] = useState<ClerkUserInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [isPending, startTransition] = useTransition()
   const [dialogState, setDialogState] = useState<{
     open: boolean
     type: "makeAdmin" | "removeAdmin" | "ban" | "unban" | null
-    user: ClerkUser | null
+    user: CombinedUser | null
   }>({ open: false, type: null, user: null })
 
   useEffect(() => {
-    loadUsers()
+    loadClerkUsers()
   }, [])
 
-  async function loadUsers() {
+  async function loadClerkUsers() {
     setLoading(true)
     try {
-      const data = await getUsers()
-      setUsers(data)
+      const data = await getClerkUsers()
+      setClerkUsers(data)
     } catch (error) {
       console.error("Failed to load users:", error)
     } finally {
@@ -60,7 +77,23 @@ export default function UsersPage() {
     }
   }
 
-  const filteredUsers = users.filter((user) => {
+  // Combine Clerk user info with Convex role data
+  const combinedUsers: CombinedUser[] = (convexUsers ?? []).map((convexUser) => {
+    const clerkUser = clerkUsers.find((c) => c.clerkId === convexUser.clerkId)
+    return {
+      id: convexUser._id,
+      clerkId: convexUser.clerkId,
+      firstName: clerkUser?.firstName ?? null,
+      lastName: clerkUser?.lastName ?? null,
+      email: clerkUser?.email ?? "",
+      imageUrl: clerkUser?.imageUrl ?? "",
+      role: convexUser.role,
+      createdAt: clerkUser?.createdAt ?? 0,
+      banned: clerkUser?.banned ?? false,
+    }
+  })
+
+  const filteredUsers = combinedUsers.filter((user) => {
     const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
     return (
       name.toLowerCase().includes(search.toLowerCase()) ||
@@ -72,37 +105,35 @@ export default function UsersPage() {
     if (!dialogState.user || !dialogState.type) return
 
     startTransition(async () => {
-      const userId = dialogState.user!.id
-      let result
+      const user = dialogState.user!
 
       switch (dialogState.type) {
         case "makeAdmin":
-          result = await updateUserRole(userId, "admin")
+          await updateRole({ userId: user.id, role: "admin" })
           break
         case "removeAdmin":
-          result = await updateUserRole(userId, "user")
+          await updateRole({ userId: user.id, role: "user" })
           break
         case "ban":
-          result = await banUser(userId)
+          await banUser(user.clerkId)
+          await loadClerkUsers()
           break
         case "unban":
-          result = await unbanUser(userId)
+          await unbanUser(user.clerkId)
+          await loadClerkUsers()
           break
-      }
-
-      if (result?.success) {
-        await loadUsers()
       }
 
       setDialogState({ open: false, type: null, user: null })
     })
   }
 
-  const openDialog = (type: "makeAdmin" | "removeAdmin" | "ban" | "unban", user: ClerkUser) => {
+  const openDialog = (type: "makeAdmin" | "removeAdmin" | "ban" | "unban", user: CombinedUser) => {
     setDialogState({ open: true, type, user })
   }
 
   const formatDate = (timestamp: number) => {
+    if (!timestamp) return "Unknown"
     return new Date(timestamp).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -110,22 +141,24 @@ export default function UsersPage() {
     })
   }
 
-  const getUserName = (user: ClerkUser) => {
+  const getUserName = (user: CombinedUser) => {
     if (user.firstName || user.lastName) {
       return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
     }
-    return user.email.split("@")[0]
+    return user.email.split("@")[0] || "Unknown"
   }
 
-  const getInitials = (user: ClerkUser) => {
+  const getInitials = (user: CombinedUser) => {
     if (user.firstName && user.lastName) {
       return `${user.firstName[0]}${user.lastName[0]}`
     }
     if (user.firstName) {
       return user.firstName[0]
     }
-    return user.email[0].toUpperCase()
+    return user.email[0]?.toUpperCase() ?? "?"
   }
+
+  const isLoading = loading || convexUsers === undefined
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -156,7 +189,7 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {isLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
                   <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" />

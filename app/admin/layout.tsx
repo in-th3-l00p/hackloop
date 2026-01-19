@@ -1,13 +1,21 @@
 import { redirect } from "next/navigation"
-import { isAdmin } from "@/lib/auth"
+import { auth } from "@clerk/nextjs/server"
+import { fetchQuery } from "convex/nextjs"
+import { api } from "@/convex/_generated/api"
 import { AppSidebar } from "./components/app-sidebar"
 import { SiteHeader } from "./components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const admin = await isAdmin()
+  const { userId } = await auth()
 
-  if (!admin) {
+  if (!userId) {
+    redirect("/")
+  }
+
+  const user = await fetchQuery(api.users.getUserByClerkId, { clerkId: userId })
+
+  if (!user || user.role !== "admin") {
     redirect("/dashboard")
   }
 

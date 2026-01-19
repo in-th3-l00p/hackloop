@@ -1,24 +1,36 @@
 "use server"
 
 import { clerkClient } from "@clerk/nextjs/server"
-import { isAdmin } from "@/lib/auth"
+import { auth } from "@clerk/nextjs/server"
+import { fetchQuery } from "convex/nextjs"
+import { api } from "@/convex/_generated/api"
 
-export interface ClerkUser {
-  id: string
+async function requireAdmin() {
+  const { userId } = await auth()
+  if (!userId) {
+    throw new Error("Not authenticated")
+  }
+
+  const user = await fetchQuery(api.users.getUserByClerkId, { clerkId: userId })
+  if (!user || user.role !== "admin") {
+    throw new Error("Unauthorized: Admin access required")
+  }
+
+  return user
+}
+
+export interface ClerkUserInfo {
+  clerkId: string
   firstName: string | null
   lastName: string | null
   email: string
   imageUrl: string
-  role: "admin" | "user"
   createdAt: number
   banned: boolean
 }
 
-export async function getUsers(): Promise<ClerkUser[]> {
-  const admin = await isAdmin()
-  if (!admin) {
-    throw new Error("Unauthorized")
-  }
+export async function getClerkUsers(): Promise<ClerkUserInfo[]> {
+  await requireAdmin()
 
   const client = await clerkClient()
   const { data: users } = await client.users.getUserList({
@@ -27,70 +39,42 @@ export async function getUsers(): Promise<ClerkUser[]> {
   })
 
   return users.map((user) => ({
-    id: user.id,
+    clerkId: user.id,
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.emailAddresses[0]?.emailAddress ?? "",
     imageUrl: user.imageUrl,
-    role: (user.publicMetadata?.role as "admin" | "user") ?? "user",
     createdAt: user.createdAt,
     banned: user.banned,
   }))
 }
 
-export async function updateUserRole(
-  userId: string,
-  role: "admin" | "user"
-): Promise<{ success: boolean; error?: string }> {
-  const admin = await isAdmin()
-  if (!admin) {
-    return { success: false, error: "Unauthorized" }
-  }
-
-  try {
-    const client = await clerkClient()
-    await client.users.updateUserMetadata(userId, {
-      publicMetadata: { role },
-    })
-    return { success: true }
-  } catch (error) {
-    console.error("Failed to update user role:", error)
-    return { success: false, error: "Failed to update user role" }
-  }
-}
-
 export async function banUser(
-  userId: string
+  clerkId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const admin = await isAdmin()
-  if (!admin) {
-    return { success: false, error: "Unauthorized" }
-  }
-
   try {
+    await requireAdmin()
+
     const client = await clerkClient()
-    await client.users.banUser(userId)
+    await client.users.banUser(clerkId)
     return { success: true }
   } catch (error) {
     console.error("Failed to ban user:", error)
-    return { success: false, error: "Failed to ban user" }
+    return { success: false, error: error instanceof Error ? error.message : "Failed to ban user" }
   }
 }
 
 export async function unbanUser(
-  userId: string
+  clerkId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const admin = await isAdmin()
-  if (!admin) {
-    return { success: false, error: "Unauthorized" }
-  }
-
   try {
+    await requireAdmin()
+
     const client = await clerkClient()
-    await client.users.unbanUser(userId)
+    await client.users.unbanUser(clerkId)
     return { success: true }
   } catch (error) {
     console.error("Failed to unban user:", error)
-    return { success: false, error: "Failed to unban user" }
+    return { success: false, error: error instanceof Error ? error.message : "Failed to unban user" }
   }
 }
