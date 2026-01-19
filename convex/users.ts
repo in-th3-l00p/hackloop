@@ -18,6 +18,7 @@ export const ensureUser = mutation({
 
     const clerkId = identity.subject
     const role = getRoleFromIdentity(identity)
+    console.log(identity);
 
     const existingUser = await ctx.db
       .query("users")

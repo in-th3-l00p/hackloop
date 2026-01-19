@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,7 +28,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, RotateCcw } from "lucide-react"
+import { ArrowLeft, RotateCcw, Loader2 } from "lucide-react"
 
 const STORAGE_KEY = "loophack-new-event-form"
 
@@ -37,7 +39,7 @@ interface EventFormData {
   endDate: string
   minTeamSize: string
   maxTeamSize: string
-  status: string
+  status: "draft" | "published"
   themeTitle: string
   themeDescription: string
 }
@@ -56,8 +58,11 @@ const defaultFormData: EventFormData = {
 
 export default function NewEventPage() {
   const router = useRouter()
+  const createEvent = useMutation(api.events.create)
   const [formData, setFormData] = useState<EventFormData>(defaultFormData)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -79,6 +84,7 @@ export default function NewEventPage() {
 
   const handleChange = (field: keyof EventFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    setError(null)
   }
 
   const handleReset = () => {
@@ -88,8 +94,32 @@ export default function NewEventPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    localStorage.removeItem(STORAGE_KEY)
-    router.push("/admin/events")
+    setError(null)
+
+    startTransition(async () => {
+      try {
+        const result = await createEvent({
+          name: formData.name,
+          description: formData.description,
+          startDate: new Date(formData.startDate).getTime(),
+          endDate: new Date(formData.endDate).getTime(),
+          minTeamSize: parseInt(formData.minTeamSize, 10),
+          maxTeamSize: parseInt(formData.maxTeamSize, 10),
+          status: formData.status,
+          theme: formData.themeTitle
+            ? {
+                title: formData.themeTitle,
+                description: formData.themeDescription || undefined,
+              }
+            : undefined,
+        })
+
+        localStorage.removeItem(STORAGE_KEY)
+        router.push(`/admin/events/${result.slug}`)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to create event")
+      }
+    })
   }
 
   if (!isLoaded) {
@@ -131,6 +161,13 @@ export default function NewEventPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -145,6 +182,7 @@ export default function NewEventPage() {
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 required
+                disabled={isPending}
               />
             </div>
             <div className="grid gap-2">
@@ -156,6 +194,7 @@ export default function NewEventPage() {
                 value={formData.description}
                 onChange={(e) => handleChange("description", e.target.value)}
                 required
+                disabled={isPending}
               />
             </div>
             <div className="grid gap-2">
@@ -163,6 +202,7 @@ export default function NewEventPage() {
               <Select
                 value={formData.status}
                 onValueChange={(value) => handleChange("status", value)}
+                disabled={isPending}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -189,6 +229,7 @@ export default function NewEventPage() {
                   value={formData.startDate}
                   onChange={(e) => handleChange("startDate", e.target.value)}
                   required
+                  disabled={isPending}
                 />
               </div>
               <div className="grid gap-2">
@@ -199,6 +240,7 @@ export default function NewEventPage() {
                   value={formData.endDate}
                   onChange={(e) => handleChange("endDate", e.target.value)}
                   required
+                  disabled={isPending}
                 />
               </div>
             </div>
@@ -212,6 +254,7 @@ export default function NewEventPage() {
                   value={formData.minTeamSize}
                   onChange={(e) => handleChange("minTeamSize", e.target.value)}
                   required
+                  disabled={isPending}
                 />
               </div>
               <div className="grid gap-2">
@@ -223,6 +266,7 @@ export default function NewEventPage() {
                   value={formData.maxTeamSize}
                   onChange={(e) => handleChange("maxTeamSize", e.target.value)}
                   required
+                  disabled={isPending}
                 />
               </div>
             </div>
@@ -240,6 +284,7 @@ export default function NewEventPage() {
                 placeholder="e.g., Sustainability"
                 value={formData.themeTitle}
                 onChange={(e) => handleChange("themeTitle", e.target.value)}
+                disabled={isPending}
               />
             </div>
             <div className="grid gap-2">
@@ -249,13 +294,17 @@ export default function NewEventPage() {
                 placeholder="Describe the theme..."
                 value={formData.themeDescription}
                 onChange={(e) => handleChange("themeDescription", e.target.value)}
+                disabled={isPending}
               />
             </div>
           </CardContent>
         </Card>
         <div className="flex gap-4 lg:col-span-2">
-          <Button type="submit">Create Event</Button>
-          <Button type="button" variant="outline" asChild>
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+            Create Event
+          </Button>
+          <Button type="button" variant="outline" asChild disabled={isPending}>
             <Link href="/admin/events">Cancel</Link>
           </Button>
         </div>
