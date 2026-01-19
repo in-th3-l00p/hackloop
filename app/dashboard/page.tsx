@@ -1,5 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
+import { fetchQuery } from "convex/nextjs"
+import { api } from "@/convex/_generated/api"
 import { UserButton } from "@clerk/nextjs"
 import { Card, CardContent } from "@/components/ui/card"
 import { JoinEventModal } from "./join-event-modal"
@@ -36,7 +38,9 @@ export default async function UserDashboardPage() {
     redirect("/")
   }
 
-  if (user.publicMetadata?.role === "admin") {
+  const convexUser = await fetchQuery(api.users.getUserByClerkId, { clerkId: user.id })
+
+  if (convexUser?.role === "admin") {
     redirect("/admin/dashboard")
   }
 

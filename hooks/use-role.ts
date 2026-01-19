@@ -1,13 +1,18 @@
 "use client"
 
-import { useUser } from "@clerk/nextjs"
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
 
 export function useIsAdmin(): boolean {
-  const { user } = useUser()
-  return user?.publicMetadata?.role === "admin"
+  const user = useQuery(api.users.getCurrentUser)
+  return user?.role === "admin"
 }
 
-export function useRole(): "admin" | "user" {
-  const { user } = useUser()
-  return user?.publicMetadata?.role === "admin" ? "admin" : "user"
+export function useRole(): "admin" | "user" | undefined {
+  const user = useQuery(api.users.getCurrentUser)
+  return user?.role
+}
+
+export function useCurrentUser() {
+  return useQuery(api.users.getCurrentUser)
 }
