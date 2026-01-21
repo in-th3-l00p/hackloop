@@ -61,12 +61,12 @@ export default function EventsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
+      <div>
         <div>
           <h1 className="text-2xl font-bold">Events</h1>
           <p className="text-sm text-muted-foreground">Manage your hackathon events</p>
         </div>
-        <Button asChild>
+        <Button asChild className="mt-4">
           <Link href="/admin/events/new">
             <Plus className="mr-2 size-4" />
             Create Event
@@ -89,7 +89,7 @@ export default function EventsPage() {
           </Button>
         </div>
       ) : (
-        <ul className="divide-y divide-border rounded-lg border">
+        <ul className="divide-y divide-border rounded-lg border max-w-3xl">
           {events.map((event) => (
             <li key={event._id}>
               <Link
