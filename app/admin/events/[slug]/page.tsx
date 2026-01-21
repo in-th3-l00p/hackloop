@@ -334,7 +334,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
   return (
     <>
       <Tabs defaultValue="overview" className="flex flex-col">
-        {/* Tabs Navigation */}
         <div className="border-b px-4 sm:px-6 lg:px-8">
           <TabsList className="h-auto bg-transparent p-0">
             <TabsTrigger
@@ -375,7 +374,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
             )}
           </div>
           <div className="flex items-center gap-4">
-            {/* Draft/Published Toggle */}
             {isPreStart && (
               <div className="flex items-center gap-2">
                 <Switch
@@ -390,7 +388,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
               </div>
             )}
 
-            {/* Start Event Button */}
             {isPreStart && (
               <Button onClick={handleStartEvent} disabled={isPending}>
                 {isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
@@ -398,7 +395,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
               </Button>
             )}
 
-            {/* Stop Event Button */}
             {isActive && (
               <Button onClick={handleStopEvent} disabled={isPending} variant="destructive">
                 {isPending ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
@@ -406,7 +402,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
               </Button>
             )}
 
-            {/* Restart Event Button */}
             {isStopped && (
               <Button onClick={handleRestartEvent} disabled={isPending}>
                 {isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
@@ -423,7 +418,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
             <Card key={stat.name} className="rounded-none border-0 shadow-none">
@@ -439,7 +433,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
           <TimelineStat status={event.status} startDate={event.startDate} endDate={event.endDate} />
         </div>
 
-        {/* Tab Content */}
         <TabsContent value="overview" className="mt-0">
           <div className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
             <h2 className="text-base font-semibold">Latest activity</h2>
@@ -512,7 +505,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
         </TabsContent>
       </Tabs>
 
-      {/* Early Start Confirmation Dialog */}
       <AlertDialog open={showEarlyStartDialog} onOpenChange={setShowEarlyStartDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -534,7 +526,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Stop Event Confirmation Dialog */}
       <AlertDialog open={showStopDialog} onOpenChange={setShowStopDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -556,7 +547,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Event Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
