@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import {
   Table,
   TableBody,
@@ -32,13 +34,11 @@ import {
   Users,
   FileText,
   Play,
-  Pause,
-  CheckCircle,
-  Eye,
+  Square,
   Settings,
-  Trash2,
   Loader2,
   UserPlus,
+  AlertTriangle,
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
@@ -49,25 +49,7 @@ const statusConfig: Record<EventStatus, { label: string; variant: "default" | "s
   published: { label: "Published", variant: "outline" },
   active: { label: "Live", variant: "default" },
   judging: { label: "Judging", variant: "outline" },
-  completed: { label: "Completed", variant: "secondary" },
-}
-
-function getNextStatuses(current: EventStatus): { status: EventStatus; label: string; icon: React.ReactNode }[] {
-  switch (current) {
-    case "draft":
-      return [{ status: "published", label: "Publish Event", icon: <Eye className="size-4" /> }]
-    case "published":
-      return [{ status: "active", label: "Start Event", icon: <Play className="size-4" /> }]
-    case "active":
-      return [
-        { status: "judging", label: "Start Judging", icon: <Pause className="size-4" /> },
-        { status: "completed", label: "End Event", icon: <CheckCircle className="size-4" /> },
-      ]
-    case "judging":
-      return [{ status: "completed", label: "Complete Event", icon: <CheckCircle className="size-4" /> }]
-    default:
-      return []
-  }
+  completed: { label: "Stopped", variant: "secondary" },
 }
 
 function useCountdown(targetDate: number, isActive: boolean) {
@@ -135,7 +117,7 @@ function TimelineStat({ status, startDate, endDate }: { status: EventStatus; sta
         <CardContent className="px-8">
           <p className="text-sm font-medium text-muted-foreground">Timeline</p>
           <p className="mt-2 flex flex-col">
-            <span className="text-2xl font-semibold tracking-tight">Ended</span>
+            <span className="text-2xl font-semibold tracking-tight">Stopped</span>
             <span className="text-sm text-muted-foreground">
               {formatDistanceToNow(endDate, { addSuffix: true })}
             </span>
@@ -170,7 +152,7 @@ function TimelineStat({ status, startDate, endDate }: { status: EventStatus; sta
             <span className="text-2xl font-semibold tracking-tight tabular-nums">
               {formatCountdown(countdown)}
             </span>
-            <span className="text-sm text-muted-foreground">until start</span>
+            <span className="text-sm text-muted-foreground">until scheduled start</span>
           </p>
         </CardContent>
       </Card>
@@ -220,6 +202,8 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
   const deleteEvent = useMutation(api.events.remove)
   const [isPending, startTransition] = useTransition()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showEarlyStartDialog, setShowEarlyStartDialog] = useState(false)
+  const [showStopDialog, setShowStopDialog] = useState(false)
 
   if (event === undefined) {
     return (
@@ -246,6 +230,39 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
     })
   }
 
+  const handlePublishToggle = (checked: boolean) => {
+    handleStatusChange(checked ? "published" : "draft")
+  }
+
+  const handleStartEvent = () => {
+    const now = Date.now()
+    const isEarlyStart = now < event.startDate
+
+    if (isEarlyStart) {
+      setShowEarlyStartDialog(true)
+    } else {
+      handleStatusChange("active")
+    }
+  }
+
+  const handleConfirmEarlyStart = () => {
+    handleStatusChange("active")
+    setShowEarlyStartDialog(false)
+  }
+
+  const handleStopEvent = () => {
+    setShowStopDialog(true)
+  }
+
+  const handleConfirmStop = () => {
+    handleStatusChange("completed")
+    setShowStopDialog(false)
+  }
+
+  const handleRestartEvent = () => {
+    handleStatusChange("active")
+  }
+
   const handleDelete = () => {
     startTransition(async () => {
       await deleteEvent({ id: event._id })
@@ -253,8 +270,11 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
     })
   }
 
-  const nextStatuses = getNextStatuses(event.status)
   const statusInfo = statusConfig[event.status]
+  const isPreStart = event.status === "draft" || event.status === "published"
+  const isActive = event.status === "active"
+  const isStopped = event.status === "completed"
+  const isPublished = event.status === "published"
 
   const stats = [
     { name: "Participants", value: event.participantCount.toString(), unit: "registered" },
@@ -354,16 +374,46 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
               <p className="mt-2 text-sm text-muted-foreground">{event.description}</p>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {nextStatuses.length > 0 && (
-              <Button
-                onClick={() => handleStatusChange(nextStatuses[0].status)}
-                disabled={isPending}
-              >
-                {isPending ? <Loader2 className="size-4 animate-spin" /> : nextStatuses[0].icon}
-                {nextStatuses[0].label}
+          <div className="flex items-center gap-4">
+            {/* Draft/Published Toggle */}
+            {isPreStart && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="publish-toggle"
+                  checked={isPublished}
+                  onCheckedChange={handlePublishToggle}
+                  disabled={isPending}
+                />
+                <Label htmlFor="publish-toggle" className="text-sm">
+                  {isPublished ? "Published" : "Draft"}
+                </Label>
+              </div>
+            )}
+
+            {/* Start Event Button */}
+            {isPreStart && (
+              <Button onClick={handleStartEvent} disabled={isPending}>
+                {isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                Start Event
               </Button>
             )}
+
+            {/* Stop Event Button */}
+            {isActive && (
+              <Button onClick={handleStopEvent} disabled={isPending} variant="destructive">
+                {isPending ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
+                Stop Event
+              </Button>
+            )}
+
+            {/* Restart Event Button */}
+            {isStopped && (
+              <Button onClick={handleRestartEvent} disabled={isPending}>
+                {isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                Restart Event
+              </Button>
+            )}
+
             <Link href={`/admin/events/${slug}/settings`}>
               <Button variant="outline">
                 <Settings className="size-4" />
@@ -462,6 +512,51 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
         </TabsContent>
       </Tabs>
 
+      {/* Early Start Confirmation Dialog */}
+      <AlertDialog open={showEarlyStartDialog} onOpenChange={setShowEarlyStartDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              Start event early?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The scheduled start time hasn&apos;t been reached yet. Starting the event now will begin the countdown
+              immediately. Participants will be able to submit their projects.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmEarlyStart}>
+              Start Now
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Stop Event Confirmation Dialog */}
+      <AlertDialog open={showStopDialog} onOpenChange={setShowStopDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              Stop event early?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The countdown hasn&apos;t finished yet. Stopping the event will prevent new submissions and end the
+              hackathon for all participants. You can restart the event later if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmStop} className="bg-destructive hover:bg-destructive/90">
+              Stop Event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Event Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

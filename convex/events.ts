@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { mutation, query, internalMutation } from "./_generated/server"
 
 const eventStatusValidator = v.union(
   v.literal("draft"),
@@ -348,5 +348,28 @@ export const getStats = query({
       judgeCount: judges.length,
       staffCount: staff.length,
     }
+  },
+})
+
+// Internal mutation called by cron job to auto-complete events when deadline passes
+export const checkAndCompleteEvents = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now()
+
+    // Find all active events that have passed their end date
+    const activeEvents = await ctx.db
+      .query("events")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect()
+
+    const eventsToComplete = activeEvents.filter((event) => event.endDate <= now)
+
+    // Update each event to completed status
+    for (const event of eventsToComplete) {
+      await ctx.db.patch(event._id, { status: "completed" })
+    }
+
+    return { completedCount: eventsToComplete.length }
   },
 })
