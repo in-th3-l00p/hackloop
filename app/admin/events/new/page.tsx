@@ -27,7 +27,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, RotateCcw, Loader2 } from "lucide-react"
 
 const STORAGE_KEY = "loophack-new-event-form"
@@ -168,12 +167,11 @@ export default function NewEventPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
+      <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl">
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Basic Information</h2>
+          <p className="text-sm font-light text-muted-foreground mb-4">Event name and description</p>
+          <div className="space-y-4 pb-8 border-b">
             <div className="grid gap-2">
               <Label htmlFor="name">Event Name</Label>
               <Input
@@ -190,36 +188,20 @@ export default function NewEventPage() {
               <Textarea
                 id="description"
                 placeholder="Describe your hackathon..."
-                className="min-h-32"
+                className="min-h-24"
                 value={formData.description}
                 onChange={(e) => handleChange("description", e.target.value)}
                 required
                 disabled={isPending}
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => handleChange("status", value)}
-                disabled={isPending}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Schedule & Teams</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Schedule & Teams</h2>
+          <p className="text-sm font-light text-muted-foreground mb-4">Set event dates and team size limits</p>
+          <div className="space-y-4 pb-8 border-b">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="startDate">Start Date</Label>
@@ -270,13 +252,13 @@ export default function NewEventPage() {
                 />
               </div>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Theme (Optional)</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Theme</h2>
+          <p className="text-sm font-light text-muted-foreground mb-4">Define the theme for your hackathon (optional)</p>
+          <div className="space-y-4 pb-8 border-b">
             <div className="grid gap-2">
               <Label htmlFor="themeTitle">Theme Title</Label>
               <Input
@@ -292,14 +274,16 @@ export default function NewEventPage() {
               <Textarea
                 id="themeDescription"
                 placeholder="Describe the theme..."
+                className="min-h-20"
                 value={formData.themeDescription}
                 onChange={(e) => handleChange("themeDescription", e.target.value)}
                 disabled={isPending}
               />
             </div>
-          </CardContent>
-        </Card>
-        <div className="flex gap-4 lg:col-span-2">
+          </div>
+        </div>
+
+        <div className="flex gap-4 pt-4">
           <Button type="submit" disabled={isPending}>
             {isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
             Create Event
