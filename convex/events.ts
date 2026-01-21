@@ -126,7 +126,6 @@ export const create = mutation({
 
     let slug = generateSlug(args.name)
 
-    // Check for slug uniqueness and append number if needed
     let existingEvent = await ctx.db
       .query("events")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -280,7 +279,6 @@ export const remove = mutation({
           .collect(),
       ])
 
-    // Delete scores for submissions
     for (const submission of submissions) {
       const scores = await ctx.db
         .query("scores")
@@ -291,7 +289,6 @@ export const remove = mutation({
       }
     }
 
-    // Delete all related records
     await Promise.all([
       ...participants.map((p) => ctx.db.delete(p._id)),
       ...teams.map((t) => ctx.db.delete(t._id)),
@@ -351,13 +348,11 @@ export const getStats = query({
   },
 })
 
-// Internal mutation called by cron job to auto-complete events when deadline passes
 export const checkAndCompleteEvents = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now()
 
-    // Find all active events that have passed their end date
     const activeEvents = await ctx.db
       .query("events")
       .withIndex("by_status", (q) => q.eq("status", "active"))
@@ -365,7 +360,6 @@ export const checkAndCompleteEvents = internalMutation({
 
     const eventsToComplete = activeEvents.filter((event) => event.endDate <= now)
 
-    // Update each event to completed status
     for (const event of eventsToComplete) {
       await ctx.db.patch(event._id, { status: "completed" })
     }

@@ -3,7 +3,6 @@ import { internal } from "./_generated/api"
 
 const crons = cronJobs()
 
-// Check for events that need to be auto-completed every minute
 crons.interval(
   "check-event-deadlines",
   { minutes: 1 },
