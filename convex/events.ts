@@ -194,7 +194,14 @@ export const update = mutation({
       throw new Error("Event not found")
     }
 
-    // If name changed, update slug
+    const finalUpdates: Record<string, unknown> = { ...updates }
+
+    const newStartDate = updates.startDate ?? event.startDate
+    const newEndDate = updates.endDate ?? event.endDate
+    if (updates.startDate !== undefined || updates.endDate !== undefined) {
+      finalUpdates.duration = newEndDate - newStartDate
+    }
+
     if (updates.name && updates.name !== event.name) {
       let slug = generateSlug(updates.name)
       let existingEvent = await ctx.db
@@ -212,10 +219,10 @@ export const update = mutation({
         counter++
       }
 
-      await ctx.db.patch(id, { ...updates, slug })
-    } else {
-      await ctx.db.patch(id, updates)
+      finalUpdates.slug = slug
     }
+
+    await ctx.db.patch(id, finalUpdates)
 
     return id
   },
