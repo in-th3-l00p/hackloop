@@ -5,18 +5,9 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,18 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  Users,
-  FileText,
-  Play,
-  Square,
-  Settings,
-  Loader2,
-  UserPlus,
-  AlertTriangle,
-} from "lucide-react"
+import { Play, Square, Settings, Loader2, AlertTriangle } from "lucide-react"
 import { useEvent } from "@/hooks/use-event"
 import { TimerStat } from "./timer-stat"
+import { OverviewTab } from "./overview-tab"
+import { TeamsTab } from "./teams-tab"
+import { SubmissionsTab } from "./submissions-tab"
+import { JudgingTab } from "./judging-tab"
 
 type EventStatus = "draft" | "published" | "active" | "judging" | "completed"
 
@@ -90,55 +76,6 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
     { name: "Teams", value: event.teamCount.toString(), unit: `${event.minTeamSize}-${event.maxTeamSize} members` },
     { name: "Submissions", value: event.submissionCount.toString(), unit: "projects" },
   ]
-
-  const activityItems = [
-    {
-      id: "1",
-      type: "team_created" as const,
-      team: "Code Wizards",
-      user: "John Doe",
-      date: "2 hours ago",
-      dateTime: new Date().toISOString(),
-    },
-    {
-      id: "2",
-      type: "submission" as const,
-      team: "Byte Brigade",
-      user: "Jane Smith",
-      date: "5 hours ago",
-      dateTime: new Date().toISOString(),
-    },
-    {
-      id: "3",
-      type: "registration" as const,
-      team: null,
-      user: "Alice Johnson",
-      date: "1 day ago",
-      dateTime: new Date().toISOString(),
-    },
-  ]
-
-  const getActivityIcon = (type: "team_created" | "submission" | "registration") => {
-    switch (type) {
-      case "team_created":
-        return <UserPlus className="size-4" />
-      case "submission":
-        return <FileText className="size-4" />
-      case "registration":
-        return <Users className="size-4" />
-    }
-  }
-
-  const getActivityDescription = (item: (typeof activityItems)[0]) => {
-    switch (item.type) {
-      case "team_created":
-        return `Created team "${item.team}"`
-      case "submission":
-        return `Submitted project for "${item.team}"`
-      case "registration":
-        return "Registered for event"
-    }
-  }
 
   return (
     <>
@@ -243,74 +180,19 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
         </div>
 
         <TabsContent value="overview" className="mt-0">
-          <div className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
-            <h2 className="text-base font-semibold">Latest activity</h2>
-            <div className="mt-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead className="hidden sm:table-cell">Activity</TableHead>
-                    <TableHead className="text-right">Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activityItems.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="py-12 text-center text-muted-foreground">
-                        No activity yet
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    activityItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="size-8">
-                              <AvatarFallback className="text-xs">
-                                {getActivityIcon(item.type)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium">{item.user}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground sm:table-cell">
-                          {getActivityDescription(item)}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          <time dateTime={item.dateTime}>{item.date}</time>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+          <OverviewTab />
         </TabsContent>
 
         <TabsContent value="teams" className="mt-0">
-          <div className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
-            <div className="flex h-64 items-center justify-center rounded-lg border border-dashed">
-              <p className="text-muted-foreground">Teams management coming soon</p>
-            </div>
-          </div>
+          <TeamsTab />
         </TabsContent>
 
         <TabsContent value="submissions" className="mt-0">
-          <div className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
-            <div className="flex h-64 items-center justify-center rounded-lg border border-dashed">
-              <p className="text-muted-foreground">Submissions management coming soon</p>
-            </div>
-          </div>
+          <SubmissionsTab />
         </TabsContent>
 
         <TabsContent value="judging" className="mt-0">
-          <div className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
-            <div className="flex h-64 items-center justify-center rounded-lg border border-dashed">
-              <p className="text-muted-foreground">Judging management coming soon</p>
-            </div>
-          </div>
+          <JudgingTab />
         </TabsContent>
       </Tabs>
 
