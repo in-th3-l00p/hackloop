@@ -222,7 +222,7 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
         </TabsContent>
 
         <TabsContent value="teams" className="mt-0">
-          <TeamsTab />
+          <TeamsTab eventId={event._id} eventSlug={slug} />
         </TabsContent>
 
         <TabsContent value="submissions" className="mt-0">

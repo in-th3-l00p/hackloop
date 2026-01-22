@@ -10,6 +10,7 @@
 
 import type * as crons from "../crons.js";
 import type * as events from "../events.js";
+import type * as participants from "../participants.js";
 import type * as users from "../users.js";
 
 import type {
@@ -21,6 +22,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   events: typeof events;
+  participants: typeof participants;
   users: typeof users;
 }>;
 

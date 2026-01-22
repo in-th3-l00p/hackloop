@@ -33,11 +33,17 @@ export default defineSchema({
         documentId: v.optional(v.id("_storage")),
       })
     ),
+    // Join settings
+    inviteLinkEnabled: v.optional(v.boolean()),
+    inviteCode: v.optional(v.string()),
+    publicJoinEnabled: v.optional(v.boolean()),
+    autoAcceptEnabled: v.optional(v.boolean()),
     createdBy: v.id("users"),
   })
     .index("by_slug", ["slug"])
     .index("by_status", ["status"])
-    .index("by_created_by", ["createdBy"]),
+    .index("by_created_by", ["createdBy"])
+    .index("by_invite_code", ["inviteCode"]),
 
   eventStaff: defineTable({
     eventId: v.id("events"),
@@ -63,6 +69,22 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_team", ["teamId"])
     .index("by_event_and_user", ["eventId", "userId"]),
+
+  joinRequests: defineTable({
+    eventId: v.id("events"),
+    name: v.string(),
+    email: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("rejected")
+    ),
+    requestedAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_event_and_status", ["eventId", "status"])
+    .index("by_email", ["email"]),
 
   teams: defineTable({
     eventId: v.id("events"),
