@@ -141,12 +141,15 @@ export const create = mutation({
       counter++
     }
 
+    const duration = args.endDate - args.startDate
+
     const eventId = await ctx.db.insert("events", {
       name: args.name,
       slug,
       description: args.description,
       startDate: args.startDate,
       endDate: args.endDate,
+      duration,
       minTeamSize: args.minTeamSize,
       maxTeamSize: args.maxTeamSize,
       status: args.status,
@@ -231,7 +234,17 @@ export const updateStatus = mutation({
       throw new Error("Event not found")
     }
 
-    await ctx.db.patch(args.id, { status: args.status })
+    const isStarting = args.status === "active" && event.status !== "active"
+
+    if (isStarting) {
+      await ctx.db.patch(args.id, {
+        status: args.status,
+        startedAt: Date.now(),
+      })
+    } else {
+      await ctx.db.patch(args.id, { status: args.status })
+    }
+
     return args.id
   },
 })
@@ -246,7 +259,6 @@ export const remove = mutation({
       throw new Error("Event not found")
     }
 
-    // Delete related data
     const [participants, teams, submissions, staff, announcements, criteria, messages] =
       await Promise.all([
         ctx.db
@@ -358,12 +370,22 @@ export const checkAndCompleteEvents = internalMutation({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect()
 
-    const eventsToComplete = activeEvents.filter((event) => event.endDate <= now)
+    let completedCount = 0
 
-    for (const event of eventsToComplete) {
-      await ctx.db.patch(event._id, { status: "completed" })
+    for (const event of activeEvents) {
+      if (!event.startedAt) continue
+
+      const elapsed = now - event.startedAt
+      const remaining = event.duration - elapsed
+
+      if (remaining <= 0) {
+        await ctx.db.patch(event._id, {
+          status: "completed",
+        })
+        completedCount++
+      }
     }
 
-    return { completedCount: eventsToComplete.length }
+    return { completedCount }
   },
 })

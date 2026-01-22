@@ -1,10 +1,7 @@
 "use client"
 
-import { use, useState, useTransition, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { use } from "react"
 import Link from "next/link"
-import { useQuery, useMutation } from "convex/react"
-import { api } from "@/convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -40,7 +37,8 @@ import {
   UserPlus,
   AlertTriangle,
 } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
+import { useEvent } from "@/hooks/use-event"
+import { TimerStat } from "./timer-stat"
 
 type EventStatus = "draft" | "published" | "active" | "judging" | "completed"
 
@@ -52,160 +50,21 @@ const statusConfig: Record<EventStatus, { label: string; variant: "default" | "s
   completed: { label: "Stopped", variant: "secondary" },
 }
 
-function useCountdown(targetDate: number, isActive: boolean) {
-  const [timeLeft, setTimeLeft] = useState(() => calculateTimeLeft(targetDate))
-
-  function calculateTimeLeft(target: number) {
-    const now = Date.now()
-    const diff = target - now
-
-    if (diff <= 0) {
-      return { days: 0, hours: 0, minutes: 0, seconds: 0, isOver: true }
-    }
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-
-    return { days, hours, minutes, seconds, isOver: false }
-  }
-
-  useEffect(() => {
-    if (!isActive) return
-
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft(targetDate))
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [targetDate, isActive])
-
-  return timeLeft
-}
-
-function formatCountdown(time: { days: number; hours: number; minutes: number; seconds: number }) {
-  const parts: string[] = []
-
-  if (time.days > 0) {
-    parts.push(`${time.days}d`)
-  }
-  if (time.hours > 0 || time.days > 0) {
-    parts.push(`${time.hours}h`)
-  }
-  if (time.minutes > 0 || time.hours > 0 || time.days > 0) {
-    parts.push(`${time.minutes}m`)
-  }
-  parts.push(`${time.seconds}s`)
-
-  return parts.join(" ")
-}
-
-function TimelineStat({ status, startDate, endDate }: { status: EventStatus; startDate: number; endDate: number }) {
-  const isBeforeStart = status === "draft" || status === "published"
-  const isActive = status === "active" || status === "judging"
-  const isCompleted = status === "completed"
-
-  const countdown = useCountdown(
-    isBeforeStart ? startDate : endDate,
-    isBeforeStart || isActive
-  )
-
-  if (isCompleted) {
-    return (
-      <Card className="rounded-none border-0 shadow-none">
-        <CardContent className="px-8">
-          <p className="text-sm font-medium text-muted-foreground">Timeline</p>
-          <p className="mt-2 flex flex-col">
-            <span className="text-2xl font-semibold tracking-tight">Stopped</span>
-            <span className="text-sm text-muted-foreground">
-              {formatDistanceToNow(endDate, { addSuffix: true })}
-            </span>
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (isBeforeStart) {
-    if (countdown.isOver) {
-      return (
-        <Card className="rounded-none border-0 shadow-none">
-          <CardContent className="px-8">
-            <p className="text-sm font-medium text-muted-foreground">Timeline</p>
-            <p className="mt-2 flex flex-col">
-              <span className="text-2xl font-semibold tracking-tight text-amber-600">Should have started</span>
-              <span className="text-sm text-muted-foreground">
-                {formatDistanceToNow(startDate, { addSuffix: true })}
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-      )
-    }
-
-    return (
-      <Card className="rounded-none border-0 shadow-none">
-        <CardContent className="px-8">
-          <p className="text-sm font-medium text-muted-foreground">Starts in</p>
-          <p className="mt-2 flex flex-col">
-            <span className="text-2xl font-semibold tracking-tight tabular-nums">
-              {formatCountdown(countdown)}
-            </span>
-            <span className="text-sm text-muted-foreground">until scheduled start</span>
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (isActive) {
-    if (countdown.isOver) {
-      return (
-        <Card className="rounded-none border-0 shadow-none">
-          <CardContent className="px-8">
-            <p className="text-sm font-medium text-muted-foreground">Timeline</p>
-            <p className="mt-2 flex flex-col">
-              <span className="text-2xl font-semibold tracking-tight text-amber-600">Time&apos;s up!</span>
-              <span className="text-sm text-muted-foreground">
-                Ended {formatDistanceToNow(endDate, { addSuffix: true })}
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-      )
-    }
-
-    return (
-      <Card className="rounded-none border-0 shadow-none">
-        <CardContent className="px-8">
-          <p className="text-sm font-medium text-muted-foreground">Time remaining</p>
-          <p className="mt-2 flex flex-col">
-            <span className="text-2xl font-semibold tracking-tight tabular-nums">
-              {formatCountdown(countdown)}
-            </span>
-            <span className="text-sm text-muted-foreground">until deadline</span>
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return null
-}
-
 export default function EventDashboardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
-  const router = useRouter()
-  const event = useQuery(api.events.getBySlug, { slug })
-  const updateStatus = useMutation(api.events.updateStatus)
-  const deleteEvent = useMutation(api.events.remove)
-  const [isPending, startTransition] = useTransition()
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [showEarlyStartDialog, setShowEarlyStartDialog] = useState(false)
-  const [showStopDialog, setShowStopDialog] = useState(false)
+  const {
+    event,
+    isLoading,
+    isPending,
+    isPreStart,
+    isActive,
+    isStopped,
+    isPublished,
+    dialogs,
+    actions,
+  } = useEvent(slug)
 
-  if (event === undefined) {
+  if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -213,7 +72,7 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
     )
   }
 
-  if (event === null) {
+  if (!event) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Event not found</p>
@@ -224,57 +83,7 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
     )
   }
 
-  const handleStatusChange = (newStatus: EventStatus) => {
-    startTransition(async () => {
-      await updateStatus({ id: event._id, status: newStatus })
-    })
-  }
-
-  const handlePublishToggle = (checked: boolean) => {
-    handleStatusChange(checked ? "published" : "draft")
-  }
-
-  const handleStartEvent = () => {
-    const now = Date.now()
-    const isEarlyStart = now < event.startDate
-
-    if (isEarlyStart) {
-      setShowEarlyStartDialog(true)
-    } else {
-      handleStatusChange("active")
-    }
-  }
-
-  const handleConfirmEarlyStart = () => {
-    handleStatusChange("active")
-    setShowEarlyStartDialog(false)
-  }
-
-  const handleStopEvent = () => {
-    setShowStopDialog(true)
-  }
-
-  const handleConfirmStop = () => {
-    handleStatusChange("completed")
-    setShowStopDialog(false)
-  }
-
-  const handleRestartEvent = () => {
-    handleStatusChange("active")
-  }
-
-  const handleDelete = () => {
-    startTransition(async () => {
-      await deleteEvent({ id: event._id })
-      router.push("/admin/events")
-    })
-  }
-
   const statusInfo = statusConfig[event.status]
-  const isPreStart = event.status === "draft" || event.status === "published"
-  const isActive = event.status === "active"
-  const isStopped = event.status === "completed"
-  const isPublished = event.status === "published"
 
   const stats = [
     { name: "Participants", value: event.participantCount.toString(), unit: "registered" },
@@ -379,7 +188,7 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
                 <Switch
                   id="publish-toggle"
                   checked={isPublished}
-                  onCheckedChange={handlePublishToggle}
+                  onCheckedChange={actions.togglePublish}
                   disabled={isPending}
                 />
                 <Label htmlFor="publish-toggle" className="text-sm">
@@ -389,21 +198,21 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
             )}
 
             {isPreStart && (
-              <Button onClick={handleStartEvent} disabled={isPending}>
+              <Button onClick={actions.start} disabled={isPending}>
                 {isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
                 Start Event
               </Button>
             )}
 
             {isActive && (
-              <Button onClick={handleStopEvent} disabled={isPending} variant="destructive">
+              <Button onClick={actions.stop} disabled={isPending} variant="destructive">
                 {isPending ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
                 Stop Event
               </Button>
             )}
 
             {isStopped && (
-              <Button onClick={handleRestartEvent} disabled={isPending}>
+              <Button onClick={actions.restart} disabled={isPending}>
                 {isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
                 Restart Event
               </Button>
@@ -430,7 +239,7 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
               </CardContent>
             </Card>
           ))}
-          <TimelineStat status={event.status} startDate={event.startDate} endDate={event.endDate} />
+          <TimerStat event={event} />
         </div>
 
         <TabsContent value="overview" className="mt-0">
@@ -505,7 +314,7 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
         </TabsContent>
       </Tabs>
 
-      <AlertDialog open={showEarlyStartDialog} onOpenChange={setShowEarlyStartDialog}>
+      <AlertDialog open={dialogs.earlyStart} onOpenChange={actions.cancelEarlyStart}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -519,14 +328,14 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmEarlyStart}>
+            <AlertDialogAction onClick={actions.confirmEarlyStart}>
               Start Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showStopDialog} onOpenChange={setShowStopDialog}>
+      <AlertDialog open={dialogs.stop} onOpenChange={actions.cancelStop}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -540,14 +349,14 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmStop} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction onClick={actions.confirmStop} className="bg-destructive hover:bg-destructive/90">
               Stop Event
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog open={dialogs.delete} onOpenChange={actions.cancelDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete event?</AlertDialogTitle>
@@ -558,7 +367,7 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction onClick={actions.confirmDelete} className="bg-destructive hover:bg-destructive/90">
               Delete Event
             </AlertDialogAction>
           </AlertDialogFooter>
