@@ -11,13 +11,13 @@ interface TimerStatProps {
 export function TimerStat({ event }: TimerStatProps) {
   const timer = useEventTimer(event)
 
-  if (timer.phase === "completed") {
+  if (timer.phase === "paused") {
     return (
       <Card className="rounded-none border-0 shadow-none">
         <CardContent className="px-8">
           <p className="text-sm font-medium text-muted-foreground">Timer</p>
           <p className="mt-2 flex flex-col">
-            <span className="text-2xl font-semibold tracking-tight">Stopped</span>
+            <span className="text-2xl font-semibold tracking-tight">Paused</span>
             <span className="text-sm text-muted-foreground">
               {timer.remaining.totalMs > 0 ? `${timer.formatted.remaining} remaining` : "Time expired"}
             </span>

@@ -17,6 +17,8 @@ interface Event {
   endDate: number
   duration: number
   startedAt?: number
+  pausedAt?: number
+  elapsedBeforePause?: number
   minTeamSize: number
   maxTeamSize: number
   status: EventStatus
@@ -37,6 +39,8 @@ interface UseEventReturn {
     earlyStart: boolean
     stop: boolean
     delete: boolean
+    modifyTimer: boolean
+    extendTimer: boolean
   }
   actions: {
     publish: () => void
@@ -48,7 +52,14 @@ interface UseEventReturn {
     stop: () => void
     confirmStop: () => void
     cancelStop: () => void
+    resume: () => void
     restart: () => void
+    openModifyTimer: () => void
+    confirmModifyTimer: (newDuration: number) => void
+    cancelModifyTimer: () => void
+    openExtendTimer: () => void
+    confirmExtendTimer: (additionalTime: number) => void
+    cancelExtendTimer: () => void
     remove: () => void
     confirmDelete: () => void
     cancelDelete: () => void
@@ -60,11 +71,16 @@ export function useEvent(slug: string): UseEventReturn {
   const event = useQuery(api.events.getBySlug, { slug })
   const updateStatus = useMutation(api.events.updateStatus)
   const deleteEvent = useMutation(api.events.remove)
+  const resumeTimerMutation = useMutation(api.events.resumeTimer)
+  const modifyTimerMutation = useMutation(api.events.modifyTimer)
+  const extendTimerMutation = useMutation(api.events.extendTimer)
 
   const [isPending, startTransition] = useTransition()
   const [showEarlyStartDialog, setShowEarlyStartDialog] = useState(false)
   const [showStopDialog, setShowStopDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showModifyTimerDialog, setShowModifyTimerDialog] = useState(false)
+  const [showExtendTimerDialog, setShowExtendTimerDialog] = useState(false)
 
   const isLoading = event === undefined
   const isPreStart = event?.status === "draft" || event?.status === "published"
@@ -123,9 +139,54 @@ export function useEvent(slug: string): UseEventReturn {
     setShowStopDialog(false)
   }, [])
 
+  const resume = useCallback(() => {
+    if (!event) return
+    startTransition(async () => {
+      await resumeTimerMutation({ id: event._id })
+    })
+  }, [event, resumeTimerMutation])
+
   const restart = useCallback(() => {
     changeStatus("active")
   }, [changeStatus])
+
+  const openModifyTimer = useCallback(() => {
+    setShowModifyTimerDialog(true)
+  }, [])
+
+  const confirmModifyTimer = useCallback(
+    (newDuration: number) => {
+      if (!event) return
+      startTransition(async () => {
+        await modifyTimerMutation({ id: event._id, newDuration })
+        setShowModifyTimerDialog(false)
+      })
+    },
+    [event, modifyTimerMutation]
+  )
+
+  const cancelModifyTimer = useCallback(() => {
+    setShowModifyTimerDialog(false)
+  }, [])
+
+  const openExtendTimer = useCallback(() => {
+    setShowExtendTimerDialog(true)
+  }, [])
+
+  const confirmExtendTimer = useCallback(
+    (additionalTime: number) => {
+      if (!event) return
+      startTransition(async () => {
+        await extendTimerMutation({ id: event._id, additionalTime })
+        setShowExtendTimerDialog(false)
+      })
+    },
+    [event, extendTimerMutation]
+  )
+
+  const cancelExtendTimer = useCallback(() => {
+    setShowExtendTimerDialog(false)
+  }, [])
 
   const remove = useCallback(() => {
     setShowDeleteDialog(true)
@@ -155,6 +216,8 @@ export function useEvent(slug: string): UseEventReturn {
       earlyStart: showEarlyStartDialog,
       stop: showStopDialog,
       delete: showDeleteDialog,
+      modifyTimer: showModifyTimerDialog,
+      extendTimer: showExtendTimerDialog,
     },
     actions: {
       publish,
@@ -166,7 +229,14 @@ export function useEvent(slug: string): UseEventReturn {
       stop,
       confirmStop,
       cancelStop,
+      resume,
       restart,
+      openModifyTimer,
+      confirmModifyTimer,
+      cancelModifyTimer,
+      openExtendTimer,
+      confirmExtendTimer,
+      cancelExtendTimer,
       remove,
       confirmDelete,
       cancelDelete,

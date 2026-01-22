@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Play, Square, Settings, Loader2, AlertTriangle } from "lucide-react"
+import { Play, Square, Settings, Loader2, AlertTriangle, RotateCcw, Clock, Plus } from "lucide-react"
 import { useEvent } from "@/hooks/use-event"
 import { TimerStat } from "./timer-stat"
 import { OverviewTab } from "./overview-tab"
@@ -36,6 +45,12 @@ const statusConfig: Record<EventStatus, { label: string; variant: "default" | "s
   completed: { label: "Stopped", variant: "secondary" },
 }
 
+function parseDurationInput(hours: string, minutes: string): number {
+  const h = parseInt(hours, 10) || 0
+  const m = parseInt(minutes, 10) || 0
+  return (h * 60 + m) * 60 * 1000
+}
+
 export default function EventDashboardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
   const {
@@ -49,6 +64,11 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
     dialogs,
     actions,
   } = useEvent(slug)
+
+  const [modifyHours, setModifyHours] = useState("")
+  const [modifyMinutes, setModifyMinutes] = useState("")
+  const [extendHours, setExtendHours] = useState("")
+  const [extendMinutes, setExtendMinutes] = useState("30")
 
   if (isLoading) {
     return (
@@ -142,17 +162,35 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
             )}
 
             {isActive && (
-              <Button onClick={actions.stop} disabled={isPending} variant="destructive">
-                {isPending ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
-                Stop Event
-              </Button>
+              <>
+                <Button onClick={actions.openModifyTimer} disabled={isPending} variant="outline">
+                  <Clock className="size-4" />
+                  Modify Timer
+                </Button>
+                <Button onClick={actions.stop} disabled={isPending} variant="destructive">
+                  {isPending ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
+                  Stop Event
+                </Button>
+              </>
             )}
 
             {isStopped && (
-              <Button onClick={actions.restart} disabled={isPending}>
-                {isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-                Restart Event
-              </Button>
+              <>
+                {event.duration - (event.elapsedBeforePause ?? 0) > 0 && (
+                  <Button onClick={actions.resume} disabled={isPending}>
+                    {isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                    Resume Event
+                  </Button>
+                )}
+                <Button onClick={actions.restart} disabled={isPending} variant="outline">
+                  {isPending ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+                  Restart Event
+                </Button>
+                <Button onClick={actions.openExtendTimer} disabled={isPending} variant="outline">
+                  <Plus className="size-4" />
+                  Extend Time
+                </Button>
+              </>
             )}
 
             <Link href={`/admin/events/${slug}/settings`}>
@@ -255,6 +293,120 @@ export default function EventDashboardPage({ params }: { params: Promise<{ slug:
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={dialogs.modifyTimer} onOpenChange={actions.cancelModifyTimer}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modify Timer</DialogTitle>
+            <DialogDescription>
+              Set a new duration for the event timer. This will reset the timer to the new duration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="modify-hours">Hours</Label>
+                <Input
+                  id="modify-hours"
+                  type="number"
+                  min="0"
+                  value={modifyHours}
+                  onChange={(e) => setModifyHours(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="modify-minutes">Minutes</Label>
+                <Input
+                  id="modify-minutes"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={modifyMinutes}
+                  onChange={(e) => setModifyMinutes(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={actions.cancelModifyTimer}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const duration = parseDurationInput(modifyHours, modifyMinutes)
+                if (duration > 0) {
+                  actions.confirmModifyTimer(duration)
+                  setModifyHours("")
+                  setModifyMinutes("")
+                }
+              }}
+              disabled={isPending || parseDurationInput(modifyHours, modifyMinutes) <= 0}
+            >
+              {isPending && <Loader2 className="size-4 animate-spin" />}
+              Set Timer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogs.extendTimer} onOpenChange={actions.cancelExtendTimer}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Extend Time</DialogTitle>
+            <DialogDescription>
+              Add additional time to the event. The event will resume automatically with the extended duration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="extend-hours">Hours</Label>
+                <Input
+                  id="extend-hours"
+                  type="number"
+                  min="0"
+                  value={extendHours}
+                  onChange={(e) => setExtendHours(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="extend-minutes">Minutes</Label>
+                <Input
+                  id="extend-minutes"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={extendMinutes}
+                  onChange={(e) => setExtendMinutes(e.target.value)}
+                  placeholder="30"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={actions.cancelExtendTimer}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const additionalTime = parseDurationInput(extendHours, extendMinutes)
+                if (additionalTime > 0) {
+                  actions.confirmExtendTimer(additionalTime)
+                  setExtendHours("")
+                  setExtendMinutes("30")
+                }
+              }}
+              disabled={isPending || parseDurationInput(extendHours, extendMinutes) <= 0}
+            >
+              {isPending && <Loader2 className="size-4 animate-spin" />}
+              Extend Time
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

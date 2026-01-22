@@ -15,6 +15,8 @@ export default defineSchema({
     endDate: v.number(),
     duration: v.number(),
     startedAt: v.optional(v.number()),
+    pausedAt: v.optional(v.number()),
+    elapsedBeforePause: v.optional(v.number()),
     maxTeamSize: v.number(),
     minTeamSize: v.number(),
     status: v.union(

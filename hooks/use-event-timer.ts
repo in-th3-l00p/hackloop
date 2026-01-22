@@ -48,15 +48,18 @@ export interface EventTimerData {
   startDate: number
   duration: number
   startedAt?: number
+  pausedAt?: number
+  elapsedBeforePause?: number
 }
 
-export type TimerPhase = "before_start" | "should_have_started" | "active" | "times_up" | "completed"
+export type TimerPhase = "before_start" | "should_have_started" | "active" | "times_up" | "paused"
 
 export interface UseEventTimerReturn {
   phase: TimerPhase
   countdown: TimeBreakdown
   remaining: TimeBreakdown
   durationBreakdown: TimeBreakdown
+  canResume: boolean
   formatted: {
     countdown: string
     remaining: string
@@ -65,45 +68,53 @@ export interface UseEventTimerReturn {
 }
 
 export function useEventTimer(event: EventTimerData): UseEventTimerReturn {
-  const { status, startDate, duration, startedAt } = event
-  console.log(status, startDate, duration, startedAt);
+  const { status, startDate, duration, startedAt, elapsedBeforePause } = event
 
   const isBeforeStart = status === "draft" || status === "published"
   const isActive = status === "active" || status === "judging"
-  const isCompleted = status === "completed"
+  const isPaused = status === "completed"
 
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
-    if (isCompleted) return
+    if (isPaused) return
 
     const timer = setInterval(() => {
       setNow(Date.now())
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [isCompleted])
+  }, [isPaused])
 
   const countdown = useMemo(() => {
     return formatMilliseconds(startDate - now)
   }, [startDate, now])
 
   const remaining = useMemo(() => {
-    if (!startedAt) return formatMilliseconds(0)
-    return formatMilliseconds(duration - (now - startedAt))
-  }, [startedAt, duration, now])
+    if (isPaused) {
+      const elapsed = elapsedBeforePause ?? 0
+      return formatMilliseconds(duration - elapsed)
+    }
+    if (!startedAt) return formatMilliseconds(duration)
+    const currentElapsed = now - startedAt
+    const totalElapsed = (elapsedBeforePause ?? 0) + currentElapsed
+    return formatMilliseconds(duration - totalElapsed)
+  }, [isPaused, startedAt, duration, now, elapsedBeforePause])
+
+  const canResume = isPaused && !remaining.isOver
 
   const durationBreakdown = useMemo(() => {
     return formatMilliseconds(duration)
   }, [duration])
 
   const phase = useMemo((): TimerPhase => {
-    if (isCompleted) return "completed"
+    if (isPaused && remaining.isOver) return "times_up"
+    if (isPaused) return "paused"
     if (isActive && remaining.isOver) return "times_up"
     if (isActive) return "active"
     if (isBeforeStart && countdown.isOver) return "should_have_started"
     return "before_start"
-  }, [isCompleted, isActive, isBeforeStart, remaining.isOver, countdown.isOver])
+  }, [isPaused, isActive, isBeforeStart, remaining.isOver, countdown.isOver])
 
   const formatted = useMemo(
     () => ({
@@ -119,6 +130,7 @@ export function useEventTimer(event: EventTimerData): UseEventTimerReturn {
     countdown,
     remaining,
     durationBreakdown,
+    canResume,
     formatted,
   }
 }

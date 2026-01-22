@@ -242,14 +242,128 @@ export const updateStatus = mutation({
     }
 
     const isStarting = args.status === "active" && event.status !== "active"
+    const isStopping = args.status === "completed" && event.status === "active"
 
     if (isStarting) {
       await ctx.db.patch(args.id, {
         status: args.status,
         startedAt: Date.now(),
+        pausedAt: undefined,
+        elapsedBeforePause: undefined,
+      })
+    } else if (isStopping) {
+      const now = Date.now()
+      const elapsed = event.startedAt ? now - event.startedAt : 0
+      await ctx.db.patch(args.id, {
+        status: args.status,
+        pausedAt: now,
+        elapsedBeforePause: (event.elapsedBeforePause ?? 0) + elapsed,
       })
     } else {
       await ctx.db.patch(args.id, { status: args.status })
+    }
+
+    return args.id
+  },
+})
+
+export const resumeTimer = mutation({
+  args: {
+    id: v.id("events"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const event = await ctx.db.get(args.id)
+    if (!event) {
+      throw new Error("Event not found")
+    }
+
+    if (event.status !== "completed") {
+      throw new Error("Can only resume a stopped event")
+    }
+
+    const elapsed = event.elapsedBeforePause ?? 0
+    const remaining = event.duration - elapsed
+
+    if (remaining <= 0) {
+      throw new Error("No time remaining to resume")
+    }
+
+    await ctx.db.patch(args.id, {
+      status: "active",
+      startedAt: Date.now(),
+      pausedAt: undefined,
+    })
+
+    return args.id
+  },
+})
+
+export const modifyTimer = mutation({
+  args: {
+    id: v.id("events"),
+    newDuration: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const event = await ctx.db.get(args.id)
+    if (!event) {
+      throw new Error("Event not found")
+    }
+
+    if (event.status !== "active") {
+      throw new Error("Can only modify timer for active events")
+    }
+
+    if (args.newDuration <= 0) {
+      throw new Error("Duration must be positive")
+    }
+
+    await ctx.db.patch(args.id, {
+      duration: args.newDuration,
+      elapsedBeforePause: 0,
+    })
+
+    return args.id
+  },
+})
+
+export const extendTimer = mutation({
+  args: {
+    id: v.id("events"),
+    additionalTime: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+
+    const event = await ctx.db.get(args.id)
+    if (!event) {
+      throw new Error("Event not found")
+    }
+
+    if (event.status !== "active" && event.status !== "completed") {
+      throw new Error("Can only extend timer for active or completed events")
+    }
+
+    if (args.additionalTime <= 0) {
+      throw new Error("Additional time must be positive")
+    }
+
+    const newDuration = event.duration + args.additionalTime
+
+    if (event.status === "completed") {
+      await ctx.db.patch(args.id, {
+        status: "active",
+        duration: newDuration,
+        startedAt: Date.now(),
+        pausedAt: undefined,
+      })
+    } else {
+      await ctx.db.patch(args.id, {
+        duration: newDuration,
+      })
     }
 
     return args.id
