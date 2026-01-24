@@ -67,7 +67,7 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
   const removeParticipant = useMutation(api.participants.removeParticipant)
 
   const inviteLink = joinSettings?.inviteCode
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/join/${eventSlug}?code=${joinSettings.inviteCode}`
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/dashboard/join/${eventSlug}?code=${joinSettings.inviteCode}`
     : null
 
   const handleCopyLink = async () => {

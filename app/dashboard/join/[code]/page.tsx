@@ -82,7 +82,7 @@ export default function JoinEventPage() {
 
   if (!isLoaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
     )
@@ -90,7 +90,7 @@ export default function JoinEventPage() {
 
   if (event === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
     )
@@ -98,7 +98,7 @@ export default function JoinEventPage() {
 
   if (event === null) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Invalid Invite Link</CardTitle>
@@ -119,7 +119,7 @@ export default function JoinEventPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center gap-4 pt-6">
             <div className="flex size-16 items-center justify-center rounded-full bg-green-100">
@@ -136,7 +136,7 @@ export default function JoinEventPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="mb-2">
