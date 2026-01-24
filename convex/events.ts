@@ -481,6 +481,162 @@ export const getStats = query({
   },
 })
 
+// Get event by slug for participants (public access to basic info)
+export const getEventBySlugForParticipant = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const event = await ctx.db
+      .query("events")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique()
+
+    if (!event) return null
+
+    // Get participant count
+    const participants = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_event", (q) => q.eq("eventId", event._id))
+      .collect()
+
+    // Get team count
+    const teams = await ctx.db
+      .query("teams")
+      .withIndex("by_event", (q) => q.eq("eventId", event._id))
+      .collect()
+
+    // Get announcements
+    const announcements = await ctx.db
+      .query("announcements")
+      .withIndex("by_event_and_created", (q) => q.eq("eventId", event._id))
+      .order("desc")
+      .take(10)
+
+    // Get announcement authors
+    const announcementsWithAuthors = await Promise.all(
+      announcements.map(async (a) => {
+        const author = await ctx.db.get(a.authorId)
+        return {
+          ...a,
+          authorName: author?.clerkId ?? "Unknown",
+        }
+      })
+    )
+
+    return {
+      _id: event._id,
+      name: event.name,
+      slug: event.slug,
+      description: event.description,
+      status: event.status,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      duration: event.duration,
+      startedAt: event.startedAt,
+      pausedAt: event.pausedAt,
+      elapsedBeforePause: event.elapsedBeforePause,
+      minTeamSize: event.minTeamSize,
+      maxTeamSize: event.maxTeamSize,
+      theme: event.theme,
+      participantCount: participants.length,
+      teamCount: teams.length,
+      announcements: announcementsWithAuthors,
+    }
+  },
+})
+
+// Get events the current user is participating in (for hacker dashboard)
+export const getMyEvents = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique()
+
+    if (!user) {
+      return []
+    }
+
+    // Get all events the user is participating in
+    const participations = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect()
+
+    // Get event details and team info for each participation
+    const eventsWithDetails = await Promise.all(
+      participations.map(async (participation) => {
+        const event = await ctx.db.get(participation.eventId)
+        if (!event) return null
+
+        // Get team name if participant is on a team
+        let teamName: string | null = null
+        if (participation.teamId) {
+          const team = await ctx.db.get(participation.teamId)
+          teamName = team?.name ?? null
+        }
+
+        // Get participant count for the event
+        const participants = await ctx.db
+          .query("eventParticipants")
+          .withIndex("by_event", (q) => q.eq("eventId", event._id))
+          .collect()
+
+        // Calculate time remaining for active events
+        let timeRemaining: number | null = null
+        if (event.status === "active" && event.startedAt) {
+          const elapsed = (event.elapsedBeforePause ?? 0) + (Date.now() - event.startedAt)
+          timeRemaining = Math.max(0, event.duration - elapsed)
+        }
+
+        return {
+          _id: event._id,
+          name: event.name,
+          slug: event.slug,
+          description: event.description,
+          status: event.status,
+          startDate: event.startDate,
+          endDate: event.endDate,
+          duration: event.duration,
+          startedAt: event.startedAt,
+          teamName,
+          participantCount: participants.length,
+          timeRemaining,
+          joinedAt: participation.joinedAt,
+        }
+      })
+    )
+
+    // Filter out nulls and sort: active first, then published (upcoming), then rest
+    const validEvents = eventsWithDetails.filter((e) => e !== null)
+
+    const statusOrder: Record<string, number> = {
+      active: 0,
+      published: 1,
+      judging: 2,
+      completed: 3,
+      draft: 4,
+    }
+
+    validEvents.sort((a, b) => {
+      const statusDiff = statusOrder[a.status] - statusOrder[b.status]
+      if (statusDiff !== 0) return statusDiff
+      // Within same status, sort by start date (newest first for active/published, oldest first for completed)
+      if (a.status === "completed" || a.status === "judging") {
+        return b.startDate - a.startDate // Most recent completed first
+      }
+      return a.startDate - b.startDate // Soonest upcoming first
+    })
+
+    return validEvents
+  },
+})
+
 export const checkAndCompleteEvents = internalMutation({
   args: {},
   handler: async (ctx) => {

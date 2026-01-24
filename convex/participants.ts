@@ -287,3 +287,254 @@ export const removeParticipant = mutation({
     return args.participantId
   },
 })
+
+// Get event by invite code (for join page)
+export const getEventByInviteCode = query({
+  args: { code: v.string() },
+  handler: async (ctx, args) => {
+    const event = await ctx.db
+      .query("events")
+      .withIndex("by_invite_code", (q) => q.eq("inviteCode", args.code))
+      .unique()
+
+    if (!event) return null
+    if (!event.inviteLinkEnabled) return null
+
+    // Get participant count
+    const participants = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_event", (q) => q.eq("eventId", event._id))
+      .collect()
+
+    return {
+      _id: event._id,
+      name: event.name,
+      slug: event.slug,
+      description: event.description,
+      status: event.status,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      participantCount: participants.length,
+    }
+  },
+})
+
+// Join event via invite code (direct join - user must be authenticated)
+export const joinViaInviteCode = mutation({
+  args: { code: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Not authenticated")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique()
+
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    // Find event by invite code
+    const event = await ctx.db
+      .query("events")
+      .withIndex("by_invite_code", (q) => q.eq("inviteCode", args.code))
+      .unique()
+
+    if (!event) {
+      throw new Error("Invalid invite code")
+    }
+
+    if (!event.inviteLinkEnabled) {
+      throw new Error("Invite links are disabled for this event")
+    }
+
+    // Check if already a participant
+    const existingParticipant = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_event_and_user", (q) =>
+        q.eq("eventId", event._id).eq("userId", user._id)
+      )
+      .unique()
+
+    if (existingParticipant) {
+      throw new Error("You are already a participant in this event")
+    }
+
+    // Add as participant
+    await ctx.db.insert("eventParticipants", {
+      eventId: event._id,
+      userId: user._id,
+      joinedAt: Date.now(),
+    })
+
+    return { eventId: event._id, slug: event.slug }
+  },
+})
+
+// Request to join event publicly
+export const requestToJoin = mutation({
+  args: {
+    eventId: v.id("events"),
+    name: v.string(),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const event = await ctx.db.get(args.eventId)
+    if (!event) {
+      throw new Error("Event not found")
+    }
+
+    if (!event.publicJoinEnabled) {
+      throw new Error("Public join is not enabled for this event")
+    }
+
+    // Check for existing pending request with same email
+    const existingRequest = await ctx.db
+      .query("joinRequests")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first()
+
+    if (existingRequest && existingRequest.eventId === args.eventId) {
+      if (existingRequest.status === "pending") {
+        throw new Error("You already have a pending request for this event")
+      }
+      if (existingRequest.status === "accepted") {
+        throw new Error("Your request has already been accepted")
+      }
+    }
+
+    // Create join request
+    const requestId = await ctx.db.insert("joinRequests", {
+      eventId: args.eventId,
+      name: args.name,
+      email: args.email,
+      status: event.autoAcceptEnabled ? "accepted" : "pending",
+      requestedAt: Date.now(),
+      processedAt: event.autoAcceptEnabled ? Date.now() : undefined,
+    })
+
+    // If auto-accept is enabled and user is authenticated, add them as participant
+    if (event.autoAcceptEnabled) {
+      const identity = await ctx.auth.getUserIdentity()
+      if (identity) {
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+          .unique()
+
+        if (user) {
+          // Check if already participant
+          const existingParticipant = await ctx.db
+            .query("eventParticipants")
+            .withIndex("by_event_and_user", (q) =>
+              q.eq("eventId", args.eventId).eq("userId", user._id)
+            )
+            .unique()
+
+          if (!existingParticipant) {
+            await ctx.db.insert("eventParticipants", {
+              eventId: args.eventId,
+              userId: user._id,
+              joinedAt: Date.now(),
+            })
+          }
+        }
+      }
+    }
+
+    return { requestId, autoAccepted: event.autoAcceptEnabled ?? false }
+  },
+})
+
+// Get event info for public join (by slug)
+export const getEventForJoin = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const event = await ctx.db
+      .query("events")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique()
+
+    if (!event) return null
+
+    // Get participant count
+    const participants = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_event", (q) => q.eq("eventId", event._id))
+      .collect()
+
+    // Check if current user is already a participant
+    let isParticipant = false
+    const identity = await ctx.auth.getUserIdentity()
+    if (identity) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+        .unique()
+
+      if (user) {
+        const existingParticipant = await ctx.db
+          .query("eventParticipants")
+          .withIndex("by_event_and_user", (q) =>
+            q.eq("eventId", event._id).eq("userId", user._id)
+          )
+          .unique()
+
+        isParticipant = !!existingParticipant
+      }
+    }
+
+    return {
+      _id: event._id,
+      name: event.name,
+      slug: event.slug,
+      description: event.description,
+      status: event.status,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      participantCount: participants.length,
+      publicJoinEnabled: event.publicJoinEnabled ?? false,
+      inviteLinkEnabled: event.inviteLinkEnabled ?? false,
+      isParticipant,
+    }
+  },
+})
+
+// Get current user's participation in an event
+export const getMyParticipation = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique()
+
+    if (!user) return null
+
+    const participation = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_event_and_user", (q) =>
+        q.eq("eventId", args.eventId).eq("userId", user._id)
+      )
+      .unique()
+
+    if (!participation) return null
+
+    // Get team info if in a team
+    let team = null
+    if (participation.teamId) {
+      team = await ctx.db.get(participation.teamId)
+    }
+
+    return {
+      ...participation,
+      team,
+    }
+  },
+})

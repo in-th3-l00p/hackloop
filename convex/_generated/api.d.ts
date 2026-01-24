@@ -11,6 +11,8 @@
 import type * as crons from "../crons.js";
 import type * as events from "../events.js";
 import type * as participants from "../participants.js";
+import type * as submissions from "../submissions.js";
+import type * as teams from "../teams.js";
 import type * as users from "../users.js";
 
 import type {
@@ -23,6 +25,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   events: typeof events;
   participants: typeof participants;
+  submissions: typeof submissions;
+  teams: typeof teams;
   users: typeof users;
 }>;
 
