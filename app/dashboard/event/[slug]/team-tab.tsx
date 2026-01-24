@@ -27,9 +27,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Users, Plus, Copy, Check, Crown, Loader2, LogOut, RefreshCw, UserPlus } from "lucide-react"
+import { Users, Plus, Copy, Check, Crown, Loader2, LogOut, RefreshCw, UserPlus, Eye } from "lucide-react"
 import { toast } from "sonner"
 import { useEventData, useParticipation } from "./event-context"
+import { UserAvatar } from "@/components/user-avatar"
+import { UserDetailsDialog } from "@/components/user-details-dialog"
+
+interface UserInfo {
+  _id: string
+  clerkId?: string
+  name?: string | null
+  email?: string | null
+  imageUrl?: string | null
+}
 
 export function TeamTab() {
   const event = useEventData()
@@ -51,6 +61,11 @@ export function TeamTab() {
   const [isLeaving, setIsLeaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<{
+    user: UserInfo
+    isLeader?: boolean
+    joinedAt?: number
+  } | null>(null)
 
   const canModifyTeam = event.status !== "completed" && event.status !== "judging"
 
@@ -345,10 +360,19 @@ export function TeamTab() {
           {team.members.map((member) => (
             <div key={member._id} className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-3">
-                <div className="flex size-9 items-center justify-center rounded-full bg-muted">
-                  <Users className="size-4 text-muted-foreground" />
+                <UserAvatar
+                  name={member.user?.name}
+                  imageUrl={member.user?.imageUrl}
+                  size="sm"
+                />
+                <div>
+                  <p className="font-medium">
+                    {member.user?.name ?? member.user?.clerkId ?? "Unknown"}
+                  </p>
+                  {member.user?.email && (
+                    <p className="text-sm text-muted-foreground">{member.user.email}</p>
+                  )}
                 </div>
-                <span className="font-medium">{member.user?.clerkId ?? "Unknown"}</span>
               </div>
               <div className="flex items-center gap-3">
                 {member.isLeader && (
@@ -357,14 +381,34 @@ export function TeamTab() {
                     Leader
                   </Badge>
                 )}
-                <span className="text-sm text-muted-foreground">
-                  {new Date(member.joinedAt).toLocaleDateString()}
-                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    member.user &&
+                    setSelectedUser({
+                      user: member.user as UserInfo,
+                      isLeader: member.isLeader,
+                      joinedAt: member.joinedAt,
+                    })
+                  }
+                >
+                  <Eye className="size-4" />
+                </Button>
               </div>
             </div>
           ))}
         </div>
       </section>
+
+      {/* User Details Dialog */}
+      <UserDetailsDialog
+        user={selectedUser?.user ?? null}
+        open={!!selectedUser}
+        onOpenChange={(open) => !open && setSelectedUser(null)}
+        isLeader={selectedUser?.isLeader}
+        joinedAt={selectedUser?.joinedAt}
+      />
     </div>
   )
 }

@@ -10,6 +10,9 @@ export const ensureUser = mutation({
     }
 
     const clerkId = identity.subject
+    const name = identity.name ?? identity.nickname ?? undefined
+    const email = identity.email ?? undefined
+    const imageUrl = identity.pictureUrl ?? undefined
 
     const existingUser = await ctx.db
       .query("users")
@@ -17,6 +20,16 @@ export const ensureUser = mutation({
       .unique()
 
     if (existingUser) {
+      // Update user info if it changed
+      const updates: Record<string, string | undefined> = {}
+      if (name && name !== existingUser.name) updates.name = name
+      if (email && email !== existingUser.email) updates.email = email
+      if (imageUrl && imageUrl !== existingUser.imageUrl) updates.imageUrl = imageUrl
+
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(existingUser._id, updates)
+      }
+
       return existingUser._id
     }
 
@@ -25,6 +38,9 @@ export const ensureUser = mutation({
 
     const userId = await ctx.db.insert("users", {
       clerkId,
+      name,
+      email,
+      imageUrl,
       role: isFirstUser ? "admin" : "user",
     })
 

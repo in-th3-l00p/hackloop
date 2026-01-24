@@ -247,7 +247,15 @@ export const getMyTeam = query({
         const memberUser = await ctx.db.get(m.userId)
         return {
           ...m,
-          user: memberUser ? { _id: memberUser._id, clerkId: memberUser.clerkId } : null,
+          user: memberUser
+            ? {
+                _id: memberUser._id,
+                clerkId: memberUser.clerkId,
+                name: memberUser.name,
+                email: memberUser.email,
+                imageUrl: memberUser.imageUrl,
+              }
+            : null,
           isLeader: m.userId === team.leaderId,
         }
       })

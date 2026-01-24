@@ -34,8 +34,19 @@ import {
   Users,
   Loader2,
   Crown,
+  Eye,
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
+import { UserAvatar } from "@/components/user-avatar"
+import { UserDetailsDialog } from "@/components/user-details-dialog"
+
+interface UserInfo {
+  _id: string
+  clerkId?: string
+  name?: string | null
+  email?: string | null
+  imageUrl?: string | null
+}
 
 interface TeamsTabProps {
   eventId: Id<"events">
@@ -46,6 +57,11 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
   const [copiedLink, setCopiedLink] = useState(false)
   const [selectedRequests, setSelectedRequests] = useState<Set<Id<"joinRequests">>>(new Set())
   const [selectedTeamId, setSelectedTeamId] = useState<Id<"teams"> | null>(null)
+  const [selectedUser, setSelectedUser] = useState<{
+    user: UserInfo
+    isLeader?: boolean
+    joinedAt?: number
+  } | null>(null)
 
   // Queries
   const joinSettings = useQuery(api.participants.getJoinSettings, { eventId })
@@ -136,80 +152,72 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
 
   return (
     <div className="flex-1 space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="border-t"></div>
+
       {/* Section 1: Join Settings */}
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-base font-semibold">Join Settings</h2>
-          <p className="text-sm text-muted-foreground">
-            Configure how participants can join this event
-          </p>
+      <div className="space-y-4">
+        <div className="flex items-center gap-6">
+          <div>
+            <h2 className="text-base font-semibold">Invite Link</h2>
+            <p className="text-sm text-muted-foreground">
+              Generate a unique link for invited participants
+            </p>
+          </div>
+
+          <Switch
+            checked={joinSettings.inviteLinkEnabled}
+            onCheckedChange={handleToggleInviteLink}
+          />
         </div>
-
-        <div className="space-y-4 rounded-lg border p-4">
-          {/* Invite Link */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Invite Link</Label>
-              <p className="text-sm text-muted-foreground">
-                Generate a unique link for invited participants
-              </p>
+        
+        {joinSettings.inviteLinkEnabled && (
+          <div className="flex items-center gap-2">
+            <div className="flex flex-1 items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+              <Link2 className="size-4 text-muted-foreground" />
+              <Input
+                value={inviteLink}
+                readOnly
+                className="h-auto border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
+              />
             </div>
-            <Switch
-              checked={joinSettings.inviteLinkEnabled}
-              onCheckedChange={handleToggleInviteLink}
-            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleCopyLink}
+              title="Copy link"
+            >
+              {copiedLink ? (
+                <Check className="size-4 text-green-500" />
+              ) : (
+                <Copy className="size-4" />
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRegenerateCode}
+              title="Regenerate code"
+            >
+              <RefreshCw className="size-4" />
+            </Button>
           </div>
+        )}
 
-          {joinSettings.inviteLinkEnabled && inviteLink && (
-            <div className="flex items-center gap-2">
-              <div className="flex flex-1 items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
-                <Link2 className="size-4 text-muted-foreground" />
-                <Input
-                  value={inviteLink}
-                  readOnly
-                  className="h-auto border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleCopyLink}
-                title="Copy link"
-              >
-                {copiedLink ? (
-                  <Check className="size-4 text-green-500" />
-                ) : (
-                  <Copy className="size-4" />
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleRegenerateCode}
-                title="Regenerate code"
-              >
-                <RefreshCw className="size-4" />
-              </Button>
-            </div>
-          )}
-
-          <div className="border-t pt-4" />
-
-          {/* Public Join */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Public Join Requests</Label>
-              <p className="text-sm text-muted-foreground">
-                Allow anyone to request to join from the event page
-              </p>
-            </div>
-            <Switch
-              checked={joinSettings.publicJoinEnabled}
-              onCheckedChange={handleTogglePublicJoin}
-            />
+        <div className="flex items-center gap-6">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium">Public Join Requests</Label>
+            <p className="text-sm text-muted-foreground">
+              Allow anyone to request to join from the event page
+            </p>
           </div>
+          <Switch
+            checked={joinSettings.publicJoinEnabled}
+            onCheckedChange={handleTogglePublicJoin}
+          />
         </div>
       </div>
+
+      <div className="border-t"></div>
 
       {/* Section 2: Pending Requests */}
       {joinSettings.publicJoinEnabled && (
@@ -313,18 +321,14 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
             </Table>
           </div>
 
-          {/* Auto Accept Toggle */}
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Auto Accept</Label>
-              <p className="text-sm text-muted-foreground">
-                Automatically accept all join requests
-              </p>
-            </div>
+          <div className="flex items-center gap-6">
             <Switch
               checked={joinSettings.autoAcceptEnabled}
               onCheckedChange={handleToggleAutoAccept}
             />
+            <p className="text-sm">
+              Automatically accept all join requests
+            </p>
           </div>
         </div>
       )}
@@ -342,7 +346,7 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User ID</TableHead>
+                <TableHead>Participant</TableHead>
                 <TableHead>Team</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -358,8 +362,24 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
               ) : (
                 acceptedParticipants.map((participant) => (
                   <TableRow key={participant._id}>
-                    <TableCell className="font-medium">
-                      {participant.user?.clerkId ?? "Unknown"}
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <UserAvatar
+                          name={participant.user?.name}
+                          imageUrl={participant.user?.imageUrl}
+                          size="sm"
+                        />
+                        <div>
+                          <p className="font-medium">
+                            {participant.user?.name ?? participant.user?.clerkId ?? "Unknown"}
+                          </p>
+                          {participant.user?.email && (
+                            <p className="text-sm text-muted-foreground">
+                              {participant.user.email}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {participant.teamId ? (
@@ -372,14 +392,29 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
                       {formatDistanceToNow(participant.joinedAt, { addSuffix: true })}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                        onClick={() => removeParticipant({ participantId: participant._id })}
-                      >
-                        Remove
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            participant.user &&
+                            setSelectedUser({
+                              user: participant.user as UserInfo,
+                              joinedAt: participant.joinedAt,
+                            })
+                          }
+                        >
+                          <Eye className="size-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => removeParticipant({ participantId: participant._id })}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -388,6 +423,8 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
           </Table>
         </div>
       </div>
+
+      <div className="border-t"></div>
 
       {/* Section 4: Teams */}
       <div className="space-y-4">
@@ -419,7 +456,16 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
                 teams.map((team) => (
                   <TableRow key={team._id}>
                     <TableCell className="font-medium">{team.name}</TableCell>
-                    <TableCell>{team.leaderName}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <UserAvatar
+                          name={team.leader?.name}
+                          imageUrl={team.leader?.imageUrl}
+                          size="sm"
+                        />
+                        <span>{team.leaderName}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Users className="size-4 text-muted-foreground" />
@@ -458,14 +504,30 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
                 <TableRow>
                   <TableHead>Member</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Joined</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {teamMembers?.members.map((member) => (
                   <TableRow key={member._id}>
-                    <TableCell className="font-medium">
-                      {member.user?.clerkId ?? "Unknown"}
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <UserAvatar
+                          name={member.user?.name}
+                          imageUrl={member.user?.imageUrl}
+                          size="sm"
+                        />
+                        <div>
+                          <p className="font-medium">
+                            {member.user?.name ?? member.user?.clerkId ?? "Unknown"}
+                          </p>
+                          {member.user?.email && (
+                            <p className="text-xs text-muted-foreground">
+                              {member.user.email}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {member.isLeader ? (
@@ -477,8 +539,21 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
                         <span className="text-muted-foreground">Member</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDistanceToNow(member.joinedAt, { addSuffix: true })}
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          member.user &&
+                          setSelectedUser({
+                            user: member.user as UserInfo,
+                            isLeader: member.isLeader,
+                            joinedAt: member.joinedAt,
+                          })
+                        }
+                      >
+                        <Eye className="size-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -487,6 +562,15 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* User Details Dialog */}
+      <UserDetailsDialog
+        user={selectedUser?.user ?? null}
+        open={!!selectedUser}
+        onOpenChange={(open) => !open && setSelectedUser(null)}
+        isLeader={selectedUser?.isLeader}
+        joinedAt={selectedUser?.joinedAt}
+      />
     </div>
   )
 }

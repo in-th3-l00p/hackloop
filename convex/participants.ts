@@ -124,7 +124,13 @@ export const getAcceptedParticipants = query({
         return {
           ...p,
           user: user
-            ? { _id: user._id, clerkId: user.clerkId }
+            ? {
+                _id: user._id,
+                clerkId: user.clerkId,
+                name: user.name,
+                email: user.email,
+                imageUrl: user.imageUrl,
+              }
             : null,
         }
       })
@@ -239,7 +245,15 @@ export const getTeamsWithMemberCount = query({
         return {
           ...team,
           memberCount: members.length,
-          leaderName: leader?.clerkId ?? "Unknown",
+          leaderName: leader?.name ?? leader?.clerkId ?? "Unknown",
+          leader: leader
+            ? {
+                _id: leader._id,
+                name: leader.name,
+                email: leader.email,
+                imageUrl: leader.imageUrl,
+              }
+            : null,
         }
       })
     )
@@ -265,7 +279,15 @@ export const getTeamMembers = query({
         const user = await ctx.db.get(m.userId)
         return {
           ...m,
-          user: user ? { _id: user._id, clerkId: user.clerkId } : null,
+          user: user
+            ? {
+                _id: user._id,
+                clerkId: user.clerkId,
+                name: user.name,
+                email: user.email,
+                imageUrl: user.imageUrl,
+              }
+            : null,
           isLeader: m.userId === team.leaderId,
         }
       })
