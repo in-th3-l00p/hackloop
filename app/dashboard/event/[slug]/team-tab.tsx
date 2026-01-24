@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,23 +29,13 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Users, Plus, Copy, Check, Crown, Loader2, LogOut, RefreshCw, UserPlus } from "lucide-react"
 import { toast } from "sonner"
+import { useEventData, useParticipation } from "./event-context"
 
-interface TeamTabProps {
-  eventId: Id<"events">
-  participation: {
-    _id: Id<"eventParticipants">
-    teamId?: Id<"teams">
-    team?: { name: string } | null
-  }
-  event: {
-    minTeamSize: number
-    maxTeamSize: number
-    status: string
-  }
-}
+export function TeamTab() {
+  const event = useEventData()
+  const participation = useParticipation()
 
-export function TeamTab({ eventId, participation, event }: TeamTabProps) {
-  const team = useQuery(api.teams.getMyTeam, { eventId })
+  const team = useQuery(api.teams.getMyTeam, { eventId: event._id })
 
   const createTeam = useMutation(api.teams.createTeam)
   const joinTeamViaCode = useMutation(api.teams.joinTeamViaCode)
@@ -70,7 +59,7 @@ export function TeamTab({ eventId, participation, event }: TeamTabProps) {
 
     setIsCreating(true)
     try {
-      await createTeam({ eventId, name: teamName.trim() })
+      await createTeam({ eventId: event._id, name: teamName.trim() })
       setCreateDialogOpen(false)
       setTeamName("")
       toast.success("Team created!")
@@ -86,7 +75,7 @@ export function TeamTab({ eventId, participation, event }: TeamTabProps) {
 
     setIsJoining(true)
     try {
-      await joinTeamViaCode({ eventId, inviteCode: joinCode.trim().toUpperCase() })
+      await joinTeamViaCode({ eventId: event._id, inviteCode: joinCode.trim().toUpperCase() })
       setJoinDialogOpen(false)
       setJoinCode("")
       toast.success("Joined team!")
@@ -100,7 +89,7 @@ export function TeamTab({ eventId, participation, event }: TeamTabProps) {
   const handleLeaveTeam = async () => {
     setIsLeaving(true)
     try {
-      await leaveTeam({ eventId })
+      await leaveTeam({ eventId: event._id })
       toast.success("Left team")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to leave team")

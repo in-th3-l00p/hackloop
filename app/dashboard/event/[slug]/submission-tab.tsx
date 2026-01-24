@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,15 +33,14 @@ import {
   Globe,
 } from "lucide-react"
 import { toast } from "sonner"
+import { useEventData, useParticipation } from "./event-context"
 
-interface SubmissionTabProps {
-  eventId: Id<"events">
-  teamId?: Id<"teams">
-  eventStatus: string
-}
+export function SubmissionTab() {
+  const event = useEventData()
+  const participation = useParticipation()
+  const teamId = participation.teamId
 
-export function SubmissionTab({ eventId, teamId, eventStatus }: SubmissionTabProps) {
-  const submission = useQuery(api.submissions.getMySubmission, { eventId })
+  const submission = useQuery(api.submissions.getMySubmission, { eventId: event._id })
 
   const saveSubmission = useMutation(api.submissions.saveSubmission)
   const submitSubmission = useMutation(api.submissions.submitSubmission)
@@ -71,8 +69,8 @@ export function SubmissionTab({ eventId, teamId, eventStatus }: SubmissionTabPro
     }
   }, [submission])
 
-  const canEdit = eventStatus === "active" || eventStatus === "published"
-  const canSubmit = eventStatus === "active"
+  const canEdit = event.status === "active" || event.status === "published"
+  const canSubmit = event.status === "active"
   const isSubmitted = submission?.status === "submitted"
 
   const handleSave = async () => {
@@ -81,7 +79,7 @@ export function SubmissionTab({ eventId, teamId, eventStatus }: SubmissionTabPro
     setIsSaving(true)
     try {
       await saveSubmission({
-        eventId,
+        eventId: event._id,
         teamId,
         title,
         description,
