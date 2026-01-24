@@ -71,7 +71,7 @@ export default function JoinEventPage() {
       const result = await joinViaInviteCode({ code })
       setSuccess(true)
       setTimeout(() => {
-        router.push(`/event/${result.slug}`)
+        router.push(`/dashboard/event/${result.slug}`)
       }, 1500)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join event")

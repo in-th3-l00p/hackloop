@@ -38,7 +38,7 @@ export function JoinEventModal() {
       const result = await joinViaInviteCode({ code: code.trim().toUpperCase() })
       setOpen(false)
       setCode("")
-      router.push(`/event/${result.slug}`)
+      router.push(`/dashboard/event/${result.slug}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join event")
     } finally {

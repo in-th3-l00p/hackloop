@@ -96,7 +96,7 @@ function EventCard({
         : new Date(event.startDate).toLocaleDateString()
 
   return (
-    <Link href={`/event/${event.slug}`}>
+    <Link href={`/dashboard/event/${event.slug}`}>
       <Card className="flex aspect-square cursor-pointer flex-col transition-colors hover:border-primary hover:bg-muted/50">
         <CardContent className="flex flex-1 flex-col justify-between p-6">
           <div className="flex flex-col gap-2">
