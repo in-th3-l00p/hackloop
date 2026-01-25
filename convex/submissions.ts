@@ -179,6 +179,154 @@ export const submitSubmission = mutation({
   },
 })
 
+// Get all submissions for an event (admin)
+export const getEventSubmissions = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Not authenticated")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique()
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required")
+    }
+
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .collect()
+
+    // Get team info for each submission
+    const submissionsWithTeams = await Promise.all(
+      submissions.map(async (submission) => {
+        const team = await ctx.db.get(submission.teamId)
+        if (!team) {
+          return {
+            ...submission,
+            teamName: "Unknown Team",
+            teamMemberCount: 0,
+            leaderName: "Unknown",
+            leader: null,
+          }
+        }
+
+        // Get team members count
+        const members = await ctx.db
+          .query("eventParticipants")
+          .withIndex("by_team", (q) => q.eq("teamId", team._id))
+          .collect()
+
+        // Get leader info
+        const leader = await ctx.db.get(team.leaderId)
+
+        return {
+          ...submission,
+          teamName: team.name,
+          teamMemberCount: members.length,
+          leaderName: leader?.name ?? leader?.clerkId ?? "Unknown",
+          leader: leader
+            ? {
+                _id: leader._id,
+                name: leader.name,
+                email: leader.email,
+                imageUrl: leader.imageUrl,
+              }
+            : null,
+        }
+      })
+    )
+
+    // Sort: submitted first (by submittedAt desc), then drafts
+    return submissionsWithTeams.sort((a, b) => {
+      if (a.status === "submitted" && b.status !== "submitted") return -1
+      if (a.status !== "submitted" && b.status === "submitted") return 1
+      if (a.status === "submitted" && b.status === "submitted") {
+        return (b.submittedAt ?? 0) - (a.submittedAt ?? 0)
+      }
+      return 0
+    })
+  },
+})
+
+// Disqualify a submission (admin)
+export const disqualifySubmission = mutation({
+  args: {
+    submissionId: v.id("submissions"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Not authenticated")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique()
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required")
+    }
+
+    const submission = await ctx.db.get(args.submissionId)
+    if (!submission) {
+      throw new Error("Submission not found")
+    }
+
+    await ctx.db.patch(args.submissionId, {
+      status: "disqualified",
+    })
+
+    return args.submissionId
+  },
+})
+
+// Reinstate a disqualified submission (admin)
+export const reinstateSubmission = mutation({
+  args: {
+    submissionId: v.id("submissions"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Not authenticated")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique()
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required")
+    }
+
+    const submission = await ctx.db.get(args.submissionId)
+    if (!submission) {
+      throw new Error("Submission not found")
+    }
+
+    if (submission.status !== "disqualified") {
+      throw new Error("Submission is not disqualified")
+    }
+
+    // Restore to submitted if it was submitted before, otherwise draft
+    const newStatus = submission.submittedAt ? "submitted" : "draft"
+
+    await ctx.db.patch(args.submissionId, {
+      status: newStatus,
+    })
+
+    return args.submissionId
+  },
+})
+
 // Unsubmit (return to draft)
 export const unsubmitSubmission = mutation({
   args: {
