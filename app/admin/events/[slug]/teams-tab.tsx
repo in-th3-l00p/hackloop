@@ -24,6 +24,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import {
   Link2,
@@ -62,6 +72,9 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
     isLeader?: boolean
     joinedAt?: number
   } | null>(null)
+  const [confirmBatchReject, setConfirmBatchReject] = useState(false)
+  const [confirmRejectId, setConfirmRejectId] = useState<Id<"joinRequests"> | null>(null)
+  const [confirmRemoveId, setConfirmRemoveId] = useState<Id<"eventParticipants"> | null>(null)
 
   // Queries
   const joinSettings = useQuery(api.participants.getJoinSettings, { eventId })
@@ -242,7 +255,7 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={handleBatchReject}
+                  onClick={() => setConfirmBatchReject(true)}
                 >
                   <X className="size-4" />
                   Reject ({selectedRequests.size})
@@ -308,7 +321,7 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
                             size="sm"
                             variant="ghost"
                             className="size-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            onClick={() => rejectRequest({ requestId: request._id })}
+                            onClick={() => setConfirmRejectId(request._id)}
                           >
                             <X className="size-4" />
                           </Button>
@@ -410,7 +423,7 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
                           size="sm"
                           variant="ghost"
                           className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                          onClick={() => removeParticipant({ participantId: participant._id })}
+                          onClick={() => setConfirmRemoveId(participant._id)}
                         >
                           Remove
                         </Button>
@@ -571,6 +584,82 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
         isLeader={selectedUser?.isLeader}
         joinedAt={selectedUser?.joinedAt}
       />
+
+      {/* Confirmation Dialog: Batch Reject */}
+      <AlertDialog open={confirmBatchReject} onOpenChange={setConfirmBatchReject}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject {selectedRequests.size} requests?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reject all selected join requests. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                handleBatchReject()
+                setConfirmBatchReject(false)
+              }}
+            >
+              Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog: Individual Reject */}
+      <AlertDialog open={!!confirmRejectId} onOpenChange={(open) => !open && setConfirmRejectId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject this request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reject this join request. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmRejectId) {
+                  rejectRequest({ requestId: confirmRejectId })
+                  setConfirmRejectId(null)
+                }
+              }}
+            >
+              Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog: Remove Participant */}
+      <AlertDialog open={!!confirmRemoveId} onOpenChange={(open) => !open && setConfirmRemoveId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this participant?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the participant from this event. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmRemoveId) {
+                  removeParticipant({ participantId: confirmRemoveId })
+                  setConfirmRemoveId(null)
+                }
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

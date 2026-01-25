@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
-import { useParams, useRouter } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useState } from "react"
 import { useUser, SignInButton } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
@@ -51,9 +51,9 @@ function getStatusColor(status: string): string {
 }
 
 export default function JoinEventPage() {
-  const params = useParams()
+  const params = useSearchParams()
   const router = useRouter()
-  const code = params.code as string
+  const code = (params.get("code") as string).toUpperCase()
   const { isSignedIn, isLoaded } = useUser()
 
   const [isJoining, setIsJoining] = useState(false)
