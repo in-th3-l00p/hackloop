@@ -175,7 +175,7 @@ export function TeamsTab({ eventId, eventSlug }: TeamsTabProps) {
             <div className="flex flex-1 items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
               <Link2 className="size-4 text-muted-foreground" />
               <Input
-                value={inviteLink}
+                value={inviteLink ?? ""}
                 readOnly
                 className="h-auto border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
               />
